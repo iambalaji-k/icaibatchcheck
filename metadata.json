@@ -1,0 +1,6 @@
+{
+  "name": "ICAI Batch Checker",
+  "description": "Monitors ICAI course batch seat availability in real time and sends push notifications when slots open up.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

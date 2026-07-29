@@ -99,7 +99,22 @@ class BatchMonitorService : Service() {
 
     private suspend fun performBatchCheck(source: String) {
         val activeTargets = prefs.getTargets().filter { it.isEnabled }
-        val targetsToCheck = if (activeTargets.isEmpty()) prefs.getTargets().take(1) else activeTargets
+        if (activeTargets.isEmpty()) {
+            db.checkLogDao().insertLog(
+                CheckLogEntity(
+                    timestamp = System.currentTimeMillis(),
+                    status = "NO_TARGETS",
+                    message = "[$source] No active targets configured. Add a target in Settings.",
+                    regionName = "-",
+                    pouName = "-",
+                    courseName = "-",
+                    openBatchesCount = 0
+                )
+            )
+            startForegroundWithNotification("No active targets. Add target in Settings.")
+            return
+        }
+        val targetsToCheck = activeTargets
         val mockMode = prefs.mockModeEnabled
         val timeStr = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
 

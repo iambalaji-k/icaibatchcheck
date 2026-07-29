@@ -26,6 +26,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.EventSeat
 import androidx.compose.material.icons.filled.LocationOn
@@ -33,6 +34,8 @@ import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -40,12 +43,22 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -90,6 +103,22 @@ fun DashboardScreen(
         }
     }
     val openBatches = filteredBatches.filter { it.isOpen }
+
+    var searchQuery by remember { mutableStateOf("") }
+    var showOnlyOpen by remember { mutableStateOf(false) }
+
+    val displayedBatches = filteredBatches.filter { batch ->
+        val matchesFilter = if (showOnlyOpen) batch.isOpen else true
+        val matchesSearch = if (searchQuery.isBlank()) true else {
+            batch.batchName.contains(searchQuery, ignoreCase = true) ||
+            batch.venue.contains(searchQuery, ignoreCase = true) ||
+            batch.dates.contains(searchQuery, ignoreCase = true) ||
+            batch.timings.contains(searchQuery, ignoreCase = true) ||
+            batch.courseName.contains(searchQuery, ignoreCase = true) ||
+            batch.pouName.contains(searchQuery, ignoreCase = true)
+        }
+        matchesFilter && matchesSearch
+    }
 
     LazyColumn(
         modifier = Modifier
@@ -340,7 +369,71 @@ fun DashboardScreen(
             }
         }
 
-        if (filteredBatches.isEmpty()) {
+        // Search & Filter Controls
+        if (filteredBatches.isNotEmpty()) {
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("dashboard_search_input"),
+                        placeholder = { Text("Search batches, venue, dates...") },
+                        leadingIcon = {
+                            Icon(imageVector = Icons.Default.Search, contentDescription = "Search")
+                        },
+                        trailingIcon = {
+                            if (searchQuery.isNotEmpty()) {
+                                IconButton(onClick = { searchQuery = "" }) {
+                                    Icon(imageVector = Icons.Default.Clear, contentDescription = "Clear search")
+                                }
+                            }
+                        },
+                        singleLine = true,
+                        shape = RoundedCornerShape(16.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            focusedContainerColor = MaterialTheme.colorScheme.surface
+                        )
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        FilterChip(
+                            selected = !showOnlyOpen,
+                            onClick = { showOnlyOpen = false },
+                            label = { Text("All Batches (${filteredBatches.size})") },
+                            modifier = Modifier.testTag("filter_chip_all")
+                        )
+                        FilterChip(
+                            selected = showOnlyOpen,
+                            onClick = { showOnlyOpen = true },
+                            label = { Text("Open Seats Only (${openBatches.size})") },
+                            leadingIcon = {
+                                if (showOnlyOpen) {
+                                    Icon(
+                                        imageVector = Icons.Default.CheckCircle,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = EmeraldOpenSeats.copy(alpha = 0.2f),
+                                selectedLabelColor = EmeraldOpenSeats
+                            ),
+                            modifier = Modifier.testTag("filter_chip_open_only")
+                        )
+                    }
+                }
+            }
+        }
+
+        if (displayedBatches.isEmpty()) {
             item {
                 Card(
                     modifier = Modifier
@@ -363,12 +456,16 @@ fun DashboardScreen(
                             tint = MaterialTheme.colorScheme.primary
                         )
                         Text(
-                            text = if (settings.targets.isEmpty()) "No Monitoring Target Configured" else "No Batch Data Loaded",
+                            text = if (settings.targets.isEmpty()) "No Monitoring Target Configured"
+                            else if (searchQuery.isNotBlank() || showOnlyOpen) "No Matching Batches Found"
+                            else "No Batch Data Loaded",
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                         )
                         Text(
                             text = if (settings.targets.isEmpty())
                                 "Go to the Configuration tab to add the ICAI region, POU city, and course you want to monitor."
+                            else if (searchQuery.isNotBlank() || showOnlyOpen)
+                                "Try clearing your search query or switching filters."
                             else
                                 "Tap 'Check Now' or start the Service to fetch live batch status for your target(s).",
                             style = MaterialTheme.typography.bodyMedium,
@@ -378,7 +475,7 @@ fun DashboardScreen(
                 }
             }
         } else {
-            items(filteredBatches, key = { it.id }) { batch ->
+            items(displayedBatches, key = { it.id }) { batch ->
                 BatchCardItem(batch = batch)
             }
         }
@@ -507,6 +604,22 @@ fun BatchCardItem(batch: BatchEntity) {
                 }
             }
 
+            if (batch.timings.isNotEmpty()) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Schedule,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = batch.timings,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+            }
+
             if (batch.venue.isNotEmpty()) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
@@ -522,6 +635,46 @@ fun BatchCardItem(batch: BatchEntity) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
+            }
+
+            // Seat Capacity Progress Bar
+            val total = batch.totalSeats
+            val avail = batch.availableSeats
+            if (total > 0) {
+                val progress = (avail.toFloat() / total.toFloat()).coerceIn(0f, 1f)
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Seat Capacity: $avail / $total available",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = "${(progress * 100).toInt()}% open",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                            color = if (batch.isOpen) EmeraldOpenSeats else RedFullSeats
+                        )
+                    }
+                    LinearProgressIndicator(
+                        progress = progress,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(6.dp)
+                            .clip(RoundedCornerShape(3.dp)),
+                        color = if (batch.isOpen) EmeraldOpenSeats else RedFullSeats,
+                        trackColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
+                }
+            } else if (avail > 0) {
+                Text(
+                    text = "Available Seats: $avail",
+                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                    color = EmeraldOpenSeats
+                )
             }
 
             Row(

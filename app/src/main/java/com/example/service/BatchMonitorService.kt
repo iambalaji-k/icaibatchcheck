@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
+import android.os.PowerManager
 import com.example.data.db.AppDatabase
 import com.example.data.db.BatchEntity
 import com.example.data.db.CheckLogEntity
@@ -114,144 +115,160 @@ class BatchMonitorService : Service() {
             startForegroundWithNotification("No active targets. Add target in Settings.")
             return
         }
-        val targetsToCheck = activeTargets
-        val mockMode = prefs.mockModeEnabled
-        val timeStr = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
 
-        var totalOpenAcrossTargets = 0
-        var summaryPouList = mutableListOf<String>()
+        val powerManager = getSystemService(Context.POWER_SERVICE) as? PowerManager
+        val wakeLock = powerManager?.newWakeLock(
+            PowerManager.PARTIAL_WAKE_LOCK,
+            "ICAI:BatchMonitorWakeLock"
+        )
+        wakeLock?.acquire(30 * 1000L)
 
-        for (target in targetsToCheck) {
-            val regVal = target.regionValue
-            val regTxt = target.regionText
-            val pouVal = target.pouValue
-            val pouTxt = target.pouText
-            val crsVal = target.courseValue
-            val crsTxt = target.courseText
+        try {
+            val targetsToCheck = activeTargets
+            val mockMode = prefs.mockModeEnabled
+            val timeStr = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
 
-            val result = scraperRepo.checkBatches(
-                regionValue = regVal,
-                regionText = regTxt,
-                pouValue = pouVal,
-                pouText = pouTxt,
-                courseValue = crsVal,
-                courseText = crsTxt,
-                forceMock = mockMode
-            )
+            var totalOpenAcrossTargets = 0
+            var summaryPouList = mutableListOf<String>()
 
-            when (result) {
-                is ScraperResult.Success -> {
-                    val batchList = result.data
-                    val timestamp = System.currentTimeMillis()
-                    var openCount = 0
+            for (target in targetsToCheck) {
+                val regVal = target.regionValue
+                val regTxt = target.regionText
+                val pouVal = target.pouValue
+                val pouTxt = target.pouText
+                val crsVal = target.courseValue
+                val crsTxt = target.courseText
 
-                    val entities = mutableListOf<BatchEntity>()
+                val result = scraperRepo.checkBatches(
+                    regionValue = regVal,
+                    regionText = regTxt,
+                    pouValue = pouVal,
+                    pouText = pouTxt,
+                    courseValue = crsVal,
+                    courseText = crsTxt,
+                    forceMock = mockMode
+                )
 
-                    for (b in batchList) {
-                        val batchId = "${regTxt}_${pouTxt}_${crsTxt}_${b.batchName}".lowercase(Locale.ROOT)
-                        val existing = db.batchDao().getBatchById(batchId)
-                        val prevAvailable = existing?.availableSeats ?: 0
+                when (result) {
+                    is ScraperResult.Success -> {
+                        val batchList = result.data
+                        val timestamp = System.currentTimeMillis()
+                        var openCount = 0
 
-                        if (b.availableSeats > 0) {
-                            openCount++
-                            // Check if newly opened or seat count increased
-                            if (prevAvailable == 0 || b.availableSeats > prevAvailable) {
-                                // 1. Android Push Notification
-                                NotificationHelper.sendSlotOpenNotification(
-                                    context = this,
-                                    batchName = b.batchName,
-                                    availableSeats = b.availableSeats,
-                                    pouName = pouTxt,
-                                    courseName = crsTxt
-                                )
+                        val entities = mutableListOf<BatchEntity>()
 
-                                // 2. Telegram Notification
-                                if (prefs.telegramEnabled && prefs.telegramBotToken.isNotBlank() && prefs.telegramChatId.isNotBlank()) {
-                                    val telegramMsg = "<b>🚨 ICAI SLOT OPEN ALERT!</b>\n\n" +
-                                            "<b>Course:</b> ${crsTxt}\n" +
-                                            "<b>POU / City:</b> ${pouTxt} (${regTxt})\n" +
-                                            "<b>Batch:</b> ${b.batchName}\n" +
-                                            "<b>Available Seats:</b> <b>${b.availableSeats}</b>\n" +
-                                            "<b>Dates:</b> ${b.dates}\n\n" +
-                                            "🔗 <a href='https://www.icaionlineregistration.org/LaunchBatchDetail.aspx'>Register on ICAI Portal Now</a>"
-                                    TelegramHelper.sendMessage(
-                                        botToken = prefs.telegramBotToken,
-                                        chatId = prefs.telegramChatId,
-                                        text = telegramMsg
+                        for (b in batchList) {
+                            val batchId = "${regTxt}_${pouTxt}_${crsTxt}_${b.batchName}".lowercase(Locale.ROOT)
+                            val existing = db.batchDao().getBatchById(batchId)
+                            val prevAvailable = existing?.availableSeats ?: 0
+
+                            if (b.availableSeats > 0) {
+                                openCount++
+                                // Check if newly opened or seat count increased
+                                if (prevAvailable == 0 || b.availableSeats > prevAvailable) {
+                                    // 1. Android Push Notification
+                                    NotificationHelper.sendSlotOpenNotification(
+                                        context = this,
+                                        batchName = b.batchName,
+                                        availableSeats = b.availableSeats,
+                                        pouName = pouTxt,
+                                        courseName = crsTxt
                                     )
+
+                                    // 2. Telegram Notification
+                                    if (prefs.telegramEnabled && prefs.telegramBotToken.isNotBlank() && prefs.telegramChatId.isNotBlank()) {
+                                        val telegramMsg = "<b>🚨 ICAI SLOT OPEN ALERT!</b>\n\n" +
+                                                "<b>Course:</b> ${crsTxt}\n" +
+                                                "<b>POU / City:</b> ${pouTxt} (${regTxt})\n" +
+                                                "<b>Batch:</b> ${b.batchName}\n" +
+                                                "<b>Available Seats:</b> <b>${b.availableSeats}</b>\n" +
+                                                "<b>Dates:</b> ${b.dates}\n\n" +
+                                                "🔗 <a href='https://www.icaionlineregistration.org/LaunchBatchDetail.aspx'>Register on ICAI Portal Now</a>"
+                                        TelegramHelper.sendMessage(
+                                            botToken = prefs.telegramBotToken,
+                                            chatId = prefs.telegramChatId,
+                                            text = telegramMsg
+                                        )
+                                    }
                                 }
                             }
+
+                            entities.add(
+                                BatchEntity(
+                                    id = batchId,
+                                    batchName = b.batchName,
+                                    totalSeats = b.totalSeats,
+                                    availableSeats = b.availableSeats,
+                                    dates = b.dates,
+                                    timings = b.timings,
+                                    venue = b.venue,
+                                    fee = b.fee,
+                                    regionName = regTxt,
+                                    pouName = pouTxt,
+                                    courseName = crsTxt,
+                                    lastCheckedTimestamp = timestamp,
+                                    isOpen = b.availableSeats > 0
+                                )
+                            )
                         }
 
-                        entities.add(
-                            BatchEntity(
-                                id = batchId,
-                                batchName = b.batchName,
-                                totalSeats = b.totalSeats,
-                                availableSeats = b.availableSeats,
-                                dates = b.dates,
-                                timings = b.timings,
-                                venue = b.venue,
-                                fee = b.fee,
+                        if (entities.isNotEmpty()) {
+                            db.batchDao().insertBatches(entities)
+                        }
+
+                        totalOpenAcrossTargets += openCount
+                        summaryPouList.add("$pouTxt ($openCount open)")
+
+                        val logMsg = if (openCount > 0) {
+                            "🎉 $openCount OPEN BATCH(ES) in $pouTxt ($crsTxt)"
+                        } else {
+                            "Checked $pouTxt ($crsTxt) — No seats available."
+                        }
+
+                        db.checkLogDao().insertLog(
+                            CheckLogEntity(
+                                timestamp = timestamp,
+                                status = if (openCount > 0) "ALERT_TRIGGERED" else "NO_SEATS",
+                                message = "[$source] $logMsg",
                                 regionName = regTxt,
                                 pouName = pouTxt,
                                 courseName = crsTxt,
-                                lastCheckedTimestamp = timestamp,
-                                isOpen = b.availableSeats > 0
+                                openBatchesCount = openCount
+                            )
+                        )
+
+                        prefs.lastCheckTime = timestamp
+                    }
+                    is ScraperResult.Error -> {
+                        val errorMsg = result.message
+                        db.checkLogDao().insertLog(
+                            CheckLogEntity(
+                                timestamp = System.currentTimeMillis(),
+                                status = "ERROR",
+                                message = "[$source Error] $errorMsg",
+                                regionName = regTxt,
+                                pouName = pouTxt,
+                                courseName = crsTxt,
+                                openBatchesCount = 0
                             )
                         )
                     }
-
-                    if (entities.isNotEmpty()) {
-                        db.batchDao().insertBatches(entities)
-                    }
-
-                    totalOpenAcrossTargets += openCount
-                    summaryPouList.add("$pouTxt ($openCount open)")
-
-                    val logMsg = if (openCount > 0) {
-                        "🎉 $openCount OPEN BATCH(ES) in $pouTxt ($crsTxt)"
-                    } else {
-                        "Checked $pouTxt ($crsTxt) — No seats available."
-                    }
-
-                    db.checkLogDao().insertLog(
-                        CheckLogEntity(
-                            timestamp = timestamp,
-                            status = if (openCount > 0) "ALERT_TRIGGERED" else "NO_SEATS",
-                            message = "[$source] $logMsg",
-                            regionName = regTxt,
-                            pouName = pouTxt,
-                            courseName = crsTxt,
-                            openBatchesCount = openCount
-                        )
-                    )
-
-                    prefs.lastCheckTime = timestamp
-                }
-                is ScraperResult.Error -> {
-                    val errorMsg = result.message
-                    db.checkLogDao().insertLog(
-                        CheckLogEntity(
-                            timestamp = System.currentTimeMillis(),
-                            status = "ERROR",
-                            message = "[$source Error] $errorMsg",
-                            regionName = regTxt,
-                            pouName = pouTxt,
-                            courseName = crsTxt,
-                            openBatchesCount = 0
-                        )
-                    )
                 }
             }
-        }
 
-        val statusSummary = if (totalOpenAcrossTargets > 0) {
-            "🎉 $totalOpenAcrossTargets OPEN BATCH(ES) FOUND across active targets!"
-        } else {
-            "Checked ${targetsToCheck.size} target(s) at $timeStr — No open seats."
+            val statusSummary = if (totalOpenAcrossTargets > 0) {
+                "🎉 $totalOpenAcrossTargets OPEN BATCH(ES) FOUND across active targets!"
+            } else {
+                "Checked ${targetsToCheck.size} target(s) at $timeStr — No open seats."
+            }
+            startForegroundWithNotification(statusSummary)
+        } finally {
+            if (wakeLock?.isHeld == true) {
+                try {
+                    wakeLock.release()
+                } catch (_: Exception) {}
+            }
         }
-        startForegroundWithNotification(statusSummary)
     }
 
     override fun onDestroy() {

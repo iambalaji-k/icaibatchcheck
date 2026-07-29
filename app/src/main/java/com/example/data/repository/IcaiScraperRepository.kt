@@ -99,6 +99,8 @@ class IcaiScraperRepository {
 
             // 2. Select Region -> Post
             fields["ddl_reg"] = regionValue
+            fields["__EVENTTARGET"] = "ddl_reg"
+            fields["__EVENTARGUMENT"] = ""
             val form1 = FormBody.Builder()
             fields.forEach { (k, v) -> form1.add(k, v) }
 
@@ -129,6 +131,8 @@ class IcaiScraperRepository {
 
             fields["ddl_reg"] = regionValue
             fields["ddlPou"] = actualPouValue
+            fields["__EVENTTARGET"] = "ddlPou"
+            fields["__EVENTARGUMENT"] = ""
 
             // 3. Select POU -> Post
             val form2 = FormBody.Builder()
@@ -147,11 +151,32 @@ class IcaiScraperRepository {
             doc = Jsoup.parse(htmlStep3)
             fields = extractHiddenFields(doc)
 
+            // Resolve Course value by dynamically matching courseText against <select id="ddl_course">
+            var actualCourseValue = courseValue
+            val courseSelect = doc.selectFirst("select[id=ddl_course]")
+            if (courseSelect != null) {
+                val cleanTarget = courseText.trim()
+                for (opt in courseSelect.select("option")) {
+                    val optText = opt.text().trim()
+                    val optVal = opt.attr("value").trim()
+                    if (optVal.isNotEmpty() && optVal != "0") {
+                        if (optText.equals(cleanTarget, ignoreCase = true) ||
+                            optText.contains(cleanTarget, ignoreCase = true) ||
+                            cleanTarget.contains(optText, ignoreCase = true)) {
+                            actualCourseValue = optVal
+                            break
+                        }
+                    }
+                }
+            }
+
             // 4. Get batch list -> Post
             fields["ddl_reg"] = regionValue
             fields["ddlPou"] = actualPouValue
-            fields["ddl_course"] = courseValue
+            fields["ddl_course"] = actualCourseValue
             fields["btn_getlist"] = "Get List"
+            fields["__EVENTTARGET"] = ""
+            fields["__EVENTARGUMENT"] = ""
 
             val form3 = FormBody.Builder()
             fields.forEach { (k, v) -> form3.add(k, v) }
@@ -192,10 +217,16 @@ class IcaiScraperRepository {
                         } catch (_: Exception) {}
                     }
 
-                    val dates = if (cells.size >= 4) cells[3].text().trim() else ""
-                    val timings = if (cells.size >= 5) cells[4].text().trim() else ""
-                    val venue = if (cells.size >= 6) cells[5].text().trim() else ""
-                    val fee = if (cells.size >= 7) cells[6].text().trim() else ""
+                    val startDate = if (cells.size >= 4) cells[3].text().trim() else ""
+                    val endDate = if (cells.size >= 5) cells[4].text().trim() else ""
+                    val dates = when {
+                        startDate.isNotBlank() && endDate.isNotBlank() && !startDate.contains(" to ", ignoreCase = true) -> "$startDate to $endDate"
+                        startDate.isNotBlank() -> startDate
+                        else -> endDate
+                    }
+                    val timings = if (cells.size >= 6) cells[5].text().trim() else ""
+                    val venue = if (cells.size >= 7) cells[6].text().trim() else ""
+                    val fee = if (cells.size >= 8) cells[7].text().trim() else ""
 
                     batches.add(
                         BatchInfo(
@@ -217,9 +248,7 @@ class IcaiScraperRepository {
 
             ScraperResult.Success(batches)
         } catch (e: Exception) {
-            // Fallback to mock data if network fails so the app remains fully functional for demonstration
-            val fallbackBatches = getMockBatches(regionText, pouText, courseText)
-            ScraperResult.Success(fallbackBatches)
+            ScraperResult.Error("Network error: ${e.message ?: "Failed to connect to ICAI portal"}", e)
         }
     }
 
@@ -270,7 +299,7 @@ class IcaiScraperRepository {
 
 // Simple CookieJar implementation for OkHttp
 class JavaNetCookieJar : okhttp3.CookieJar {
-    private val cookieStore = mutableListOf<okhttp3.Cookie>()
+    private val cookieStore = java.util.concurrent.CopyOnWriteArrayList<okhttp3.Cookie>()
 
     override fun saveFromResponse(url: okhttp3.HttpUrl, cookies: List<okhttp3.Cookie>) {
         cookieStore.removeAll { c -> cookies.any { it.name == c.name } }

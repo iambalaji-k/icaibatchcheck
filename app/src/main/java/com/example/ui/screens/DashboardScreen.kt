@@ -76,7 +76,20 @@ fun DashboardScreen(
     onCheckNow: () -> Unit
 ) {
     val context = LocalContext.current
-    val openBatches = batches.filter { it.isOpen }
+    val activeTargets = settings.targets.filter { it.isEnabled }
+    val filteredBatches = if (activeTargets.isEmpty()) {
+        emptyList()
+    } else {
+        batches.filter { batch ->
+            activeTargets.any { target ->
+                batch.pouName.equals(target.pouText, ignoreCase = true) &&
+                (batch.courseName.equals(target.courseText, ignoreCase = true) ||
+                 batch.courseName.contains(target.courseText, ignoreCase = true) ||
+                 target.courseText.contains(batch.courseName, ignoreCase = true))
+            }
+        }
+    }
+    val openBatches = filteredBatches.filter { it.isOpen }
 
     LazyColumn(
         modifier = Modifier
@@ -192,10 +205,14 @@ fun DashboardScreen(
                     }
 
                     val activeTargetsCount = settings.targets.count { it.isEnabled }
-                    val targetText = if (settings.targets.size > 1) {
-                        "Monitoring $activeTargetsCount active targets (${settings.targets.filter { it.isEnabled }.joinToString { it.pouText }})"
-                    } else {
-                        "Target: ${settings.pouText} (${settings.regionText}) — ${settings.courseText}"
+                    val targetText = when {
+                        settings.targets.isEmpty() -> "No monitoring targets added yet. Please add a target in Settings."
+                        activeTargets.size > 1 -> "Monitoring $activeTargetsCount active targets (${activeTargets.joinToString { it.pouText }})"
+                        activeTargets.isNotEmpty() -> {
+                            val t = activeTargets.first()
+                            "Target: ${t.pouText} (${t.regionText}) — ${t.courseText}"
+                        }
+                        else -> "All monitoring targets disabled."
                     }
 
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -283,9 +300,9 @@ fun DashboardScreen(
                 MetricCard(
                     modifier = Modifier.weight(1f),
                     title = "Total Batches",
-                    value = "${batches.size}",
+                    value = "${filteredBatches.size}",
                     valueColor = MaterialTheme.colorScheme.onSurface,
-                    subtitle = "Found in ${settings.pouText}"
+                    subtitle = if (activeTargets.isNotEmpty()) "In active target(s)" else "No active target"
                 )
             }
         }
@@ -323,13 +340,14 @@ fun DashboardScreen(
             }
         }
 
-        if (batches.isEmpty()) {
+        if (filteredBatches.isEmpty()) {
             item {
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(vertical = 12.dp),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
                 ) {
                     Column(
                         modifier = Modifier
@@ -345,11 +363,14 @@ fun DashboardScreen(
                             tint = MaterialTheme.colorScheme.primary
                         )
                         Text(
-                            text = "No Batch Data Loaded Yet",
+                            text = if (settings.targets.isEmpty()) "No Monitoring Target Configured" else "No Batch Data Loaded",
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                         )
                         Text(
-                            text = "Tap 'Check Now' or start the 5-min Auto Service to scrape live batch lists for ${settings.pouText}.",
+                            text = if (settings.targets.isEmpty())
+                                "Go to the Configuration tab to add the ICAI region, POU city, and course you want to monitor."
+                            else
+                                "Tap 'Check Now' or start the Service to fetch live batch status for your target(s).",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -357,7 +378,7 @@ fun DashboardScreen(
                 }
             }
         } else {
-            items(batches, key = { it.id }) { batch ->
+            items(filteredBatches, key = { it.id }) { batch ->
                 BatchCardItem(batch = batch)
             }
         }
@@ -430,6 +451,20 @@ fun BatchCardItem(batch: BatchEntity) {
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+            ) {
+                Text(
+                    text = "${batch.courseName} • ${batch.pouName} (${batch.regionName})",
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    ),
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                )
+            }
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,

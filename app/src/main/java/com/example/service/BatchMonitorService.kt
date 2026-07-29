@@ -287,10 +287,15 @@ class BatchMonitorService : Service() {
             val intent = Intent(context, BatchMonitorService::class.java).apply {
                 action = ACTION_START
             }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(intent)
-            } else {
-                context.startService(intent)
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    context.startForegroundService(intent)
+                } else {
+                    context.startService(intent)
+                }
+            } catch (e: Exception) {
+                // Handle ForegroundServiceStartNotAllowedException on Android 12+/14+ gracefully
+                e.printStackTrace()
             }
         }
 
@@ -298,17 +303,25 @@ class BatchMonitorService : Service() {
             val intent = Intent(context, BatchMonitorService::class.java).apply {
                 action = ACTION_STOP
             }
-            context.startService(intent)
+            try {
+                context.startService(intent)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
 
         fun checkNow(context: Context) {
             val intent = Intent(context, BatchMonitorService::class.java).apply {
                 action = ACTION_CHECK_NOW
             }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(intent)
-            } else {
-                context.startService(intent)
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    context.startForegroundService(intent)
+                } else {
+                    context.startService(intent)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
         }
     }

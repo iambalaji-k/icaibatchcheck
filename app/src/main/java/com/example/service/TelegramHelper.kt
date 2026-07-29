@@ -20,14 +20,26 @@ object TelegramHelper {
 
             val cleanToken = botToken.trim()
             val cleanChatId = chatId.trim()
-            val encodedText = URLEncoder.encode(text, "UTF-8")
 
-            val urlString = "https://api.telegram.org/bot$cleanToken/sendMessage?chat_id=$cleanChatId&text=$encodedText&parse_mode=HTML"
+            val postData = "chat_id=" + URLEncoder.encode(cleanChatId, "UTF-8") +
+                    "&text=" + URLEncoder.encode(text, "UTF-8") +
+                    "&parse_mode=" + URLEncoder.encode("HTML", "UTF-8")
+            val postDataBytes = postData.toByteArray(Charsets.UTF_8)
+
+            val urlString = "https://api.telegram.org/bot$cleanToken/sendMessage"
             val url = URL(urlString)
             val connection = url.openConnection() as HttpURLConnection
-            connection.requestMethod = "GET"
+            connection.requestMethod = "POST"
+            connection.doOutput = true
+            connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
+            connection.setRequestProperty("Content-Length", postDataBytes.size.toString())
             connection.connectTimeout = 10000
             connection.readTimeout = 10000
+
+            connection.outputStream.use { os ->
+                os.write(postDataBytes)
+                os.flush()
+            }
 
             val responseCode = connection.responseCode
             if (responseCode in 200..299) {

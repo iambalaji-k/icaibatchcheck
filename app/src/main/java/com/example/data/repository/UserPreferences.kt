@@ -73,17 +73,17 @@ class UserPreferences(context: Context) {
 
     fun getTargets(): List<BatchTarget> {
         val jsonStr = prefs.getString(KEY_TARGETS_JSON, null)
-        val defaultTarget = BatchTarget(
-            id = "default_target",
-            regionValue = regionValue,
-            regionText = regionText,
-            pouValue = pouValue,
-            pouText = pouText,
-            courseValue = courseValue,
-            courseText = courseText,
-            isEnabled = true
-        )
-        if (jsonStr.isNull_or_blank()) {
+        if (jsonStr == null) {
+            val defaultTarget = BatchTarget(
+                id = "default_target",
+                regionValue = regionValue,
+                regionText = regionText,
+                pouValue = pouValue,
+                pouText = pouText,
+                courseValue = courseValue,
+                courseText = courseText,
+                isEnabled = true
+            )
             return listOf(defaultTarget)
         }
         return try {
@@ -104,9 +104,9 @@ class UserPreferences(context: Context) {
                     )
                 )
             }
-            if (list.isEmpty()) listOf(defaultTarget) else list
+            list
         } catch (e: Exception) {
-            listOf(defaultTarget)
+            emptyList()
         }
     }
 

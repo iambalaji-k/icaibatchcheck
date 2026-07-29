@@ -19,4 +19,7 @@ interface BatchDao {
 
     @Query("DELETE FROM batches")
     suspend fun clearAllBatches()
+
+    @Query("DELETE FROM batches WHERE LOWER(pouName) = LOWER(:pouName) AND (LOWER(courseName) = LOWER(:courseName) OR LOWER(courseName) LIKE LOWER('%' || :courseName || '%') OR LOWER(:courseName) LIKE LOWER('%' || courseName || '%'))")
+    suspend fun deleteBatchesByPouAndCourse(pouName: String, courseName: String)
 }

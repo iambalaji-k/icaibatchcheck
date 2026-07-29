@@ -109,9 +109,9 @@ fun ConfigScreen(
     val popularPous = listOf("Chennai", "Bengaluru", "Hyderabad", "Mumbai", "Delhi", "Kolkata", "Coimbatore", "Ernakulam", "Pune")
     val popularCourses = listOf(
         DropdownOption("48", "AICITSS - Advanced Information Technology"),
-        DropdownOption("47", "AICITSS - MCS (Management & Communication)"),
-        DropdownOption("46", "ICITSS - Information Technology"),
-        DropdownOption("45", "ICITSS - Orientation Course")
+        DropdownOption("45", "AICITSS - MCS (Management & Communication)"),
+        DropdownOption("47", "ICITSS - Information Technology"),
+        DropdownOption("46", "ICITSS - Orientation Course")
     )
 
     Column(

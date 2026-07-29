@@ -159,10 +159,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun removeTarget(targetId: String) {
+        val targetToRemove = prefs.getTargets().find { it.id == targetId }
         val current = prefs.getTargets().filter { it.id != targetId }
         prefs.saveTargets(current)
-        viewModelScope.launch {
-            db.batchDao().clearAllBatches()
+        if (targetToRemove != null) {
+            viewModelScope.launch {
+                db.batchDao().deleteBatchesByPouAndCourse(targetToRemove.pouText, targetToRemove.courseText)
+            }
         }
         _settingsState.value = readSettingsFromPrefs()
         _statusMessage.value = "Target removed."

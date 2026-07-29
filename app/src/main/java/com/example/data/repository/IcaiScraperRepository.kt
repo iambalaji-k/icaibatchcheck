@@ -211,22 +211,17 @@ class IcaiScraperRepository {
                         availSeats = cells[1].text().trim().replace(",", "").toInt()
                     } catch (_: Exception) {}
 
-                    if (cells.size >= 3) {
-                        try {
-                            totSeats = cells[2].text().trim().replace(",", "").toInt()
-                        } catch (_: Exception) {}
-                    }
-
-                    val startDate = if (cells.size >= 4) cells[3].text().trim() else ""
-                    val endDate = if (cells.size >= 5) cells[4].text().trim() else ""
+                    val startDate = if (cells.size >= 3) cells[2].text().trim() else ""
+                    val endDate = if (cells.size >= 4) cells[3].text().trim() else ""
                     val dates = when {
-                        startDate.isNotBlank() && endDate.isNotBlank() && !startDate.contains(" to ", ignoreCase = true) -> "$startDate to $endDate"
+                        startDate.isNotBlank() && endDate.isNotBlank() -> "$startDate to $endDate"
                         startDate.isNotBlank() -> startDate
                         else -> endDate
                     }
-                    val timings = if (cells.size >= 6) cells[5].text().trim() else ""
-                    val venue = if (cells.size >= 7) cells[6].text().trim() else ""
-                    val fee = if (cells.size >= 8) cells[7].text().trim() else ""
+
+                    val timings = if (cells.size >= 5) cells[4].text().trim() else ""
+                    val venue = if (cells.size >= 6) cells[5].text().trim() else ""
+                    val fee = if (cells.size >= 7) cells[6].text().trim() else ""
 
                     batches.add(
                         BatchInfo(

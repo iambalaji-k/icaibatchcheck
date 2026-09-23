@@ -130,6 +130,7 @@ class BatchMonitorService : Service() {
 
             var totalOpenAcrossTargets = 0
             var summaryPouList = mutableListOf<String>()
+            var errorCount = 0
 
             for (target in targetsToCheck) {
                 val regVal = target.regionValue
@@ -240,6 +241,7 @@ class BatchMonitorService : Service() {
                         prefs.lastCheckTime = timestamp
                     }
                     is ScraperResult.Error -> {
+                        errorCount++
                         val errorMsg = result.message
                         db.checkLogDao().insertLog(
                             CheckLogEntity(
@@ -256,10 +258,11 @@ class BatchMonitorService : Service() {
                 }
             }
 
-            val statusSummary = if (totalOpenAcrossTargets > 0) {
-                "🎉 $totalOpenAcrossTargets OPEN BATCH(ES) FOUND across active targets!"
-            } else {
-                "Checked ${targetsToCheck.size} target(s) at $timeStr — No open seats."
+            val statusSummary = when {
+                totalOpenAcrossTargets > 0 -> "🎉 $totalOpenAcrossTargets OPEN BATCH(ES) FOUND across active targets!"
+                errorCount > 0 && errorCount == targetsToCheck.size -> "Check failed: ICAI server unreachable"
+                errorCount > 0 -> "Checked with errors: ICAI server unreachable for some targets"
+                else -> "Checked ${targetsToCheck.size} target(s) at $timeStr — No open seats."
             }
             startForegroundWithNotification(statusSummary)
         } finally {

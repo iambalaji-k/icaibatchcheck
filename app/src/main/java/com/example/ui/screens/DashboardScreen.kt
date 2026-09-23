@@ -25,6 +25,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Clear
@@ -84,7 +85,8 @@ fun DashboardScreen(
     settings: SettingsUiState,
     isRefreshing: Boolean,
     onToggleMonitoring: () -> Unit,
-    onCheckNow: () -> Unit
+    onCheckNow: () -> Unit,
+    onNavigateToTargets: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val activeTargets = settings.targets.filter { it.isEnabled }
@@ -213,12 +215,14 @@ fun DashboardScreen(
                     }
 
                     // Action Buttons
+                    val hasTargets = activeTargets.isNotEmpty()
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         Button(
                             onClick = onToggleMonitoring,
+                            enabled = hasTargets || settings.isMonitoringActive,
                             modifier = Modifier
                                 .weight(1f)
                                 .height(44.dp)
@@ -235,7 +239,9 @@ fun DashboardScreen(
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = if (settings.isMonitoringActive) "Pause" else "Start Monitor",
+                                text = if (settings.isMonitoringActive) "Pause"
+                                else if (!hasTargets) "No Targets"
+                                else "Start Monitor",
                                 fontWeight = FontWeight.SemiBold,
                                 fontSize = 13.sp
                             )
@@ -270,27 +276,27 @@ fun DashboardScreen(
             }
         }
 
-        // Expressive Key Metrics
+        // Expressive Key Metrics (Centered 2-Column Grid)
         item {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 // Open Seats Card
                 Surface(
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(96.dp),
                     shape = RoundedCornerShape(20.dp),
                     color = if (openBatches.isNotEmpty()) EmeraldContainer.copy(alpha = 0.4f) else MaterialTheme.colorScheme.surfaceContainer
                 ) {
                     Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(12.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
                     ) {
-                        Text(
-                            text = "Open Seats",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
                         Text(
                             text = "${openBatches.size}",
                             style = MaterialTheme.typography.headlineLarge.copy(
@@ -298,24 +304,29 @@ fun DashboardScreen(
                                 color = if (openBatches.isNotEmpty()) EmeraldOpenSeats else MaterialTheme.colorScheme.onSurface
                             )
                         )
+                        Text(
+                            text = "Open Seats",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
 
                 // Total Batches Card
                 Surface(
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(96.dp),
                     shape = RoundedCornerShape(20.dp),
                     color = MaterialTheme.colorScheme.surfaceContainer
                 ) {
                     Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(12.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
                     ) {
-                        Text(
-                            text = "Total Batches",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
                         Text(
                             text = "${filteredBatches.size}",
                             style = MaterialTheme.typography.headlineLarge.copy(
@@ -323,42 +334,46 @@ fun DashboardScreen(
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                         )
-                    }
-                }
-
-                // Quick Portal Button
-                Surface(
-                    modifier = Modifier
-                        .clickable {
-                            val browserIntent = Intent(
-                                Intent.ACTION_VIEW,
-                                Uri.parse("https://www.icaionlineregistration.org/LaunchBatchDetail.aspx")
-                            )
-                            context.startActivity(browserIntent)
-                        }
-                        .testTag("open_icai_web_button"),
-                    shape = RoundedCornerShape(20.dp),
-                    color = MaterialTheme.colorScheme.surfaceContainer
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.OpenInNew,
-                            contentDescription = "ICAI Portal",
-                            modifier = Modifier.size(24.dp),
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "Portal",
-                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.primary
+                            text = "Total Batches",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
+            }
+        }
+
+        // Dedicated Single Prominent Action Banner for ICAI Portal
+        item {
+            OutlinedButton(
+                onClick = {
+                    val browserIntent = Intent(
+                        Intent.ACTION_VIEW,
+                        Uri.parse("https://www.icaionlineregistration.org/LaunchBatchDetail.aspx")
+                    )
+                    context.startActivity(browserIntent)
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(44.dp)
+                    .testTag("open_icai_web_button"),
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = MaterialTheme.colorScheme.primary
+                )
+            ) {
+                Icon(
+                    imageVector = Icons.Default.OpenInNew,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Open ICAI Registration Portal",
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 13.sp
+                )
             }
         }
 
@@ -444,7 +459,7 @@ fun DashboardScreen(
                             .fillMaxWidth()
                             .padding(32.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.EventSeat,
@@ -465,6 +480,18 @@ fun DashboardScreen(
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                        if (settings.targets.isEmpty()) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Button(
+                                onClick = onNavigateToTargets,
+                                modifier = Modifier.testTag("empty_add_target_button"),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Add Target", fontWeight = FontWeight.SemiBold)
+                            }
+                        }
                     }
                 }
             }

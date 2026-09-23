@@ -69,6 +69,68 @@ class IcaiScraperRepository {
         }
     }
 
+    suspend fun fetchPousForRegion(regionValue: String): ScraperResult<List<DropdownOption>> = withContext(Dispatchers.IO) {
+        try {
+            // 1. GET initial page
+            val getReq = Request.Builder()
+                .url(BASE_URL)
+                .header("User-Agent", USER_AGENT)
+                .build()
+
+            val initHtml = client.newCall(getReq).execute().use { resp ->
+                if (!resp.isSuccessful) throw Exception("Initial GET failed with HTTP ${resp.code}")
+                resp.body?.string() ?: ""
+            }
+
+            val doc1 = Jsoup.parse(initHtml)
+            val fields = extractHiddenFields(doc1)
+
+            // 2. Select Region -> PostBack
+            fields["ddl_reg"] = regionValue
+            fields["__EVENTTARGET"] = "ddl_reg"
+            fields["__EVENTARGUMENT"] = ""
+            val form = FormBody.Builder()
+            fields.forEach { (k, v) -> form.add(k, v) }
+
+            val postReq = Request.Builder()
+                .url(BASE_URL)
+                .header("User-Agent", USER_AGENT)
+                .post(form.build())
+                .build()
+
+            val htmlStep2 = client.newCall(postReq).execute().use { resp ->
+                if (!resp.isSuccessful) throw Exception("POU fetch failed with HTTP ${resp.code}")
+                resp.body?.string() ?: ""
+            }
+
+            val doc2 = Jsoup.parse(htmlStep2)
+            val pouSelect = doc2.selectFirst("select[id=ddlPou]") ?: doc2.selectFirst("select[name=ddlPou]")
+            val options = mutableListOf<DropdownOption>()
+
+            pouSelect?.select("option")?.forEach { opt ->
+                val valAttr = opt.attr("value").trim()
+                val text = opt.text().trim()
+                if (valAttr.isNotEmpty() && valAttr != "0" && !text.contains("Select", ignoreCase = true)) {
+                    options.add(DropdownOption(valAttr, text))
+                }
+            }
+
+            if (options.isEmpty()) {
+                val fallback = getFallbackPousForRegion(regionValue)
+                ScraperResult.Success(fallback)
+            } else {
+                ScraperResult.Success(options)
+            }
+        } catch (e: Exception) {
+            val fallback = getFallbackPousForRegion(regionValue)
+            if (fallback.isNotEmpty()) {
+                ScraperResult.Success(fallback)
+            } else {
+                ScraperResult.Error("ICAI Portal Error: ${e.localizedMessage ?: "Failed to fetch centers"}", e)
+            }
+        }
+    }
+
     suspend fun checkBatches(
         regionValue: String,
         regionText: String,
@@ -111,6 +173,7 @@ class IcaiScraperRepository {
                 .build()
 
             val htmlStep2 = client.newCall(postReq1).execute().use { resp ->
+                if (!resp.isSuccessful) throw Exception("Region select POST failed with HTTP ${resp.code}")
                 resp.body?.string() ?: ""
             }
 
@@ -145,6 +208,7 @@ class IcaiScraperRepository {
                 .build()
 
             val htmlStep3 = client.newCall(postReq2).execute().use { resp ->
+                if (!resp.isSuccessful) throw Exception("POU select POST failed with HTTP ${resp.code}")
                 resp.body?.string() ?: ""
             }
 
@@ -188,6 +252,7 @@ class IcaiScraperRepository {
                 .build()
 
             val batchListHtml = client.newCall(postReq3).execute().use { resp ->
+                if (!resp.isSuccessful) throw Exception("Batch list request failed with HTTP ${resp.code}")
                 resp.body?.string() ?: ""
             }
 
@@ -243,7 +308,7 @@ class IcaiScraperRepository {
 
             ScraperResult.Success(batches)
         } catch (e: Exception) {
-            ScraperResult.Error("Network error: ${e.message ?: "Failed to connect to ICAI portal"}", e)
+            ScraperResult.Error("ICAI Portal Error: ${e.localizedMessage ?: "Failed to connect to ICAI portal"}", e)
         }
     }
 
@@ -255,6 +320,80 @@ class IcaiScraperRepository {
             DropdownOption("4", "Southern"),
             DropdownOption("5", "Western")
         )
+    }
+
+    private fun getFallbackPousForRegion(regionValue: String): List<DropdownOption> {
+        return when (regionValue) {
+            "1" -> listOf(
+                DropdownOption("101", "Kanpur"),
+                DropdownOption("102", "Jaipur"),
+                DropdownOption("103", "Lucknow"),
+                DropdownOption("104", "Indore"),
+                DropdownOption("105", "Bhopal"),
+                DropdownOption("106", "Raipur"),
+                DropdownOption("107", "Patna"),
+                DropdownOption("108", "Varanasi"),
+                DropdownOption("109", "Allahabad (Prayagraj)")
+            )
+            "2" -> listOf(
+                DropdownOption("201", "Kolkata"),
+                DropdownOption("202", "Bhubaneswar"),
+                DropdownOption("203", "Guwahati"),
+                DropdownOption("204", "Cuttack"),
+                DropdownOption("205", "Siliguri"),
+                DropdownOption("206", "Rourkela"),
+                DropdownOption("207", "Jamshedpur"),
+                DropdownOption("208", "Asansol")
+            )
+            "3" -> listOf(
+                DropdownOption("301", "Delhi (Central)"),
+                DropdownOption("302", "Delhi (North)"),
+                DropdownOption("303", "Delhi (South)"),
+                DropdownOption("304", "Chandigarh"),
+                DropdownOption("305", "Gurgaon (Gurugram)"),
+                DropdownOption("306", "Noida"),
+                DropdownOption("307", "Faridabad"),
+                DropdownOption("308", "Ludhiana"),
+                DropdownOption("309", "Amritsar"),
+                DropdownOption("310", "Ghaziabad")
+            )
+            "4" -> listOf(
+                DropdownOption("3", "Chennai"),
+                DropdownOption("4", "Bengaluru"),
+                DropdownOption("5", "Hyderabad"),
+                DropdownOption("6", "Coimbatore"),
+                DropdownOption("7", "Ernakulam (Kochi)"),
+                DropdownOption("8", "Madurai"),
+                DropdownOption("9", "Visakhapatnam"),
+                DropdownOption("10", "Vijayawada"),
+                DropdownOption("11", "Kozhikode"),
+                DropdownOption("12", "Thiruvananthapuram"),
+                DropdownOption("13", "Mangaluru"),
+                DropdownOption("14", "Mysuru"),
+                DropdownOption("15", "Salem"),
+                DropdownOption("16", "Tiruchirappalli")
+            )
+            "5" -> listOf(
+                DropdownOption("501", "Mumbai"),
+                DropdownOption("502", "Pune"),
+                DropdownOption("503", "Ahmedabad"),
+                DropdownOption("504", "Surat"),
+                DropdownOption("505", "Nagpur"),
+                DropdownOption("506", "Vadodara"),
+                DropdownOption("507", "Rajkot"),
+                DropdownOption("508", "Nashik"),
+                DropdownOption("509", "Thane"),
+                DropdownOption("510", "Navi Mumbai"),
+                DropdownOption("511", "Goa")
+            )
+            else -> listOf(
+                DropdownOption("3", "Chennai"),
+                DropdownOption("4", "Bengaluru"),
+                DropdownOption("501", "Mumbai"),
+                DropdownOption("301", "Delhi"),
+                DropdownOption("201", "Kolkata")
+            )
+        }
     }
 
     private fun getMockBatches(regionText: String, pouText: String, courseText: String): List<BatchInfo> {

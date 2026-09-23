@@ -35,6 +35,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -51,6 +52,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -60,6 +62,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.BatchTarget
@@ -74,6 +77,9 @@ import com.example.ui.theme.EmeraldOpenSeats
 fun ConfigScreen(
     settings: SettingsUiState,
     regions: List<DropdownOption>,
+    pous: List<DropdownOption> = emptyList(),
+    isLoadingPous: Boolean = false,
+    onRegionChanged: (String) -> Unit = {},
     onSaveSettings: (
         regionVal: String,
         regionTxt: String,
@@ -97,7 +103,7 @@ fun ConfigScreen(
     var selectedRegionTxt by remember { mutableStateOf("Southern") }
     var pouTxtInput by remember { mutableStateOf("Chennai") }
     var pouValInput by remember { mutableStateOf("3") }
-    var courseTxtInput by remember { mutableStateOf("AICITSS - Advanced Information Technology") }
+    var courseTxtInput by remember { mutableStateOf("AICITSS - Advanced Information Technology (Adv ITT)") }
     var courseValInput by remember { mutableStateOf("48") }
 
     // Settings state
@@ -109,6 +115,21 @@ fun ConfigScreen(
     var telegramEnabled by remember(settings) { mutableStateOf(settings.telegramEnabled) }
 
     var regionDropdownExpanded by remember { mutableStateOf(false) }
+    var pouDropdownExpanded by remember { mutableStateOf(false) }
+
+    // Sync POU selection whenever pous list updates
+    LaunchedEffect(pous) {
+        if (pous.isNotEmpty()) {
+            val matching = pous.firstOrNull { it.text.equals(pouTxtInput, ignoreCase = true) }
+            if (matching != null) {
+                pouValInput = matching.value
+                pouTxtInput = matching.text
+            } else if (pouTxtInput.isBlank() || pous.none { it.value == pouValInput }) {
+                pouValInput = pous.first().value
+                pouTxtInput = pous.first().text
+            }
+        }
+    }
 
     val regionOptions = if (regions.isNotEmpty()) regions else listOf(
         DropdownOption("1", "Central"),
@@ -118,19 +139,18 @@ fun ConfigScreen(
         DropdownOption("5", "Western")
     )
 
-    val popularPous = listOf("Chennai", "Bengaluru", "Hyderabad", "Mumbai", "Delhi", "Kolkata", "Coimbatore")
     val popularCourses = listOf(
-        DropdownOption("48", "AICITSS - Advanced Information Technology"),
-        DropdownOption("45", "AICITSS - MCS"),
-        DropdownOption("47", "ICITSS - Information Technology"),
-        DropdownOption("46", "ICITSS - Orientation Course")
+        DropdownOption("48", "AICITSS - Advanced Information Technology (Adv ITT)"),
+        DropdownOption("45", "AICITSS - Management & Communication Skills (MCS)"),
+        DropdownOption("47", "ICITSS - Information Technology Course (ITT)"),
+        DropdownOption("46", "ICITSS - Orientation Course (OC)")
     )
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         // Section 1: Active Targets
@@ -321,76 +341,110 @@ fun ConfigScreen(
                                     selectedRegionVal = option.value
                                     selectedRegionTxt = option.text
                                     regionDropdownExpanded = false
+                                    onRegionChanged(option.value)
                                 }
                             )
                         }
                     }
                 }
 
-                // POU City Input + Quick Chips
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                // Dynamic POU / Center Dropdown (Replaces Manual Input)
+                ExposedDropdownMenuBox(
+                    expanded = pouDropdownExpanded,
+                    onExpandedChange = { pouDropdownExpanded = !pouDropdownExpanded }
+                ) {
                     OutlinedTextField(
-                        value = pouTxtInput,
-                        onValueChange = { pouTxtInput = it },
-                        label = { Text("POU City") },
-                        leadingIcon = { Icon(Icons.Default.LocationCity, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                        value = if (isLoadingPous) "Loading centers..." else pouTxtInput.ifBlank { "Select Center / POU" },
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Center / POU City") },
+                        leadingIcon = {
+                            if (isLoadingPous) {
+                                CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                            } else {
+                                Icon(Icons.Default.LocationCity, contentDescription = null, modifier = Modifier.size(18.dp))
+                            }
+                        },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = pouDropdownExpanded) },
                         shape = RoundedCornerShape(14.dp),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .testTag("pou_text_field"),
-                        singleLine = true,
+                            .menuAnchor()
+                            .testTag("pou_dropdown"),
                         colors = OutlinedTextFieldDefaults.colors(
                             unfocusedContainerColor = MaterialTheme.colorScheme.surface,
                             focusedContainerColor = MaterialTheme.colorScheme.surface
                         )
                     )
 
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ExposedDropdownMenu(
+                        expanded = pouDropdownExpanded,
+                        onDismissRequest = { pouDropdownExpanded = false }
                     ) {
-                        popularPous.forEach { pou ->
-                            val selected = pouTxtInput.equals(pou, ignoreCase = true)
-                            FilterChip(
-                                selected = selected,
-                                onClick = { pouTxtInput = pou },
-                                label = { Text(pou, fontSize = 11.sp) },
-                                shape = RoundedCornerShape(10.dp)
+                        if (pous.isEmpty()) {
+                            DropdownMenuItem(
+                                text = { Text(if (isLoadingPous) "Loading centers from ICAI..." else "No centers found") },
+                                onClick = { pouDropdownExpanded = false }
                             )
+                        } else {
+                            pous.forEach { pouOption ->
+                                DropdownMenuItem(
+                                    text = { Text(pouOption.text) },
+                                    onClick = {
+                                        pouValInput = pouOption.value
+                                        pouTxtInput = pouOption.text
+                                        pouDropdownExpanded = false
+                                    }
+                                )
+                            }
                         }
                     }
                 }
 
-                // Course Selection Input + Quick Chips
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    OutlinedTextField(
-                        value = courseTxtInput,
-                        onValueChange = { courseTxtInput = it },
-                        label = { Text("Course Name") },
-                        leadingIcon = { Icon(Icons.Default.School, contentDescription = null, modifier = Modifier.size(18.dp)) },
-                        shape = RoundedCornerShape(14.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("course_text_field"),
-                        singleLine = true,
-                        colors = OutlinedTextFieldDefaults.colors(
-                            unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                            focusedContainerColor = MaterialTheme.colorScheme.surface
-                        )
+                // Course Selection with FlowRow FilterChips (Teal/Emerald Selected State)
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "Course",
+                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
 
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
                         popularCourses.forEach { crs ->
-                            val isSelected = courseValInput == crs.value
+                            val isSelected = courseValInput == crs.value || courseTxtInput.equals(crs.text, ignoreCase = true)
                             FilterChip(
                                 selected = isSelected,
                                 onClick = {
                                     courseValInput = crs.value
                                     courseTxtInput = crs.text
                                 },
-                                label = { Text(crs.text, fontSize = 11.sp, maxLines = 1) },
-                                shape = RoundedCornerShape(10.dp),
-                                modifier = Modifier.fillMaxWidth()
+                                label = {
+                                    Text(
+                                        text = crs.text,
+                                        fontSize = 12.sp,
+                                        lineHeight = 16.sp,
+                                        maxLines = 2,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                },
+                                leadingIcon = if (isSelected) {
+                                    {
+                                        Icon(
+                                            imageVector = Icons.Default.Check,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                } else null,
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    selectedLeadingIconColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                ),
+                                shape = RoundedCornerShape(12.dp)
                             )
                         }
                     }
@@ -412,15 +466,16 @@ fun ConfigScreen(
                             )
                         }
                     },
+                    enabled = pouTxtInput.isNotBlank() && courseTxtInput.isNotBlank(),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(44.dp)
+                        .height(48.dp)
                         .testTag("add_target_button"),
                     shape = RoundedCornerShape(14.dp)
                 ) {
                     Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Add Target", fontWeight = FontWeight.SemiBold)
+                    Text("Add Target", fontWeight = FontWeight.Bold)
                 }
             }
         }

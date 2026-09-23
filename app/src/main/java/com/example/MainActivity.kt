@@ -57,6 +57,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -116,6 +117,8 @@ class MainActivity : ComponentActivity() {
                 val settings by viewModel.settingsState.collectAsStateWithLifecycle()
                 val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
                 val regions by viewModel.regionsList.collectAsStateWithLifecycle()
+                val pouList by viewModel.pouList.collectAsStateWithLifecycle()
+                val isLoadingPous by viewModel.isLoadingPous.collectAsStateWithLifecycle()
                 val statusMessage by viewModel.statusMessage.collectAsStateWithLifecycle()
 
                 val openBatchesCount = remember(batches) {
@@ -192,105 +195,28 @@ class MainActivity : ComponentActivity() {
                                 }
                             },
                             actions = {
+                                // Cyclical theme mode toggle: System -> Dark -> AMOLED -> Light
                                 IconButton(
-                                    onClick = {
-                                        val browserIntent = Intent(
-                                            Intent.ACTION_VIEW,
-                                            Uri.parse("https://www.icaionlineregistration.org/LaunchBatchDetail.aspx")
-                                        )
-                                        context.startActivity(browserIntent)
-                                    }
+                                    onClick = viewModel::cycleThemeMode,
+                                    modifier = Modifier.testTag("theme_toggle_button")
                                 ) {
+                                    val themeIcon = when (currentThemeMode) {
+                                        AppThemeMode.SYSTEM -> Icons.Default.BrightnessAuto
+                                        AppThemeMode.LIGHT -> Icons.Default.LightMode
+                                        AppThemeMode.DARK -> Icons.Default.DarkMode
+                                        AppThemeMode.AMOLED -> Icons.Default.Contrast
+                                    }
                                     Icon(
-                                        imageVector = Icons.Default.OpenInNew,
-                                        contentDescription = "ICAI Portal",
+                                        imageVector = themeIcon,
+                                        contentDescription = "Theme: ${currentThemeMode.title}",
                                         modifier = Modifier.size(20.dp)
                                     )
                                 }
 
-                                // Theme selector dropdown in Top Bar
-                                var themeMenuExpanded by remember { mutableStateOf(false) }
-                                Box {
-                                    IconButton(
-                                        onClick = { themeMenuExpanded = true },
-                                        modifier = Modifier.testTag("theme_toggle_button")
-                                    ) {
-                                        val themeIcon = when (currentThemeMode) {
-                                            AppThemeMode.SYSTEM -> Icons.Default.BrightnessAuto
-                                            AppThemeMode.LIGHT -> Icons.Default.LightMode
-                                            AppThemeMode.DARK -> Icons.Default.DarkMode
-                                            AppThemeMode.AMOLED -> Icons.Default.Contrast
-                                        }
-                                        Icon(
-                                            imageVector = themeIcon,
-                                            contentDescription = "Theme: ${currentThemeMode.title}",
-                                            modifier = Modifier.size(20.dp)
-                                        )
-                                    }
-
-                                    DropdownMenu(
-                                        expanded = themeMenuExpanded,
-                                        onDismissRequest = { themeMenuExpanded = false },
-                                        shape = RoundedCornerShape(16.dp),
-                                        containerColor = MaterialTheme.colorScheme.surfaceContainer
-                                    ) {
-                                        AppThemeMode.entries.forEach { mode ->
-                                            val isSelected = currentThemeMode == mode
-                                            val modeIcon = when (mode) {
-                                                AppThemeMode.SYSTEM -> Icons.Default.BrightnessAuto
-                                                AppThemeMode.LIGHT -> Icons.Default.LightMode
-                                                AppThemeMode.DARK -> Icons.Default.DarkMode
-                                                AppThemeMode.AMOLED -> Icons.Default.Contrast
-                                            }
-                                            val tagStr = when (mode) {
-                                                AppThemeMode.SYSTEM -> "theme_option_system"
-                                                AppThemeMode.LIGHT -> "theme_option_light"
-                                                AppThemeMode.DARK -> "theme_option_dark"
-                                                AppThemeMode.AMOLED -> "theme_option_amoled"
-                                            }
-
-                                            DropdownMenuItem(
-                                                text = {
-                                                    Row(
-                                                        verticalAlignment = Alignment.CenterVertically,
-                                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                                                    ) {
-                                                        Icon(
-                                                            imageVector = modeIcon,
-                                                            contentDescription = null,
-                                                            modifier = Modifier.size(18.dp),
-                                                            tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                                                        )
-                                                        Text(
-                                                            text = mode.title,
-                                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-                                                        )
-                                                    }
-                                                },
-                                                trailingIcon = {
-                                                    if (isSelected) {
-                                                        Icon(
-                                                            imageVector = Icons.Default.Check,
-                                                            contentDescription = "Selected",
-                                                            modifier = Modifier.size(18.dp),
-                                                            tint = MaterialTheme.colorScheme.primary
-                                                        )
-                                                    }
-                                                },
-                                                onClick = {
-                                                    viewModel.setThemeMode(mode)
-                                                    themeMenuExpanded = false
-                                                },
-                                                modifier = Modifier.testTag(tagStr)
-                                            )
-                                        }
-                                    }
-                                }
-
                                 IconButton(
                                     onClick = viewModel::triggerCheckNow,
-                                    enabled = !isRefreshing
+                                    enabled = !isRefreshing,
+                                    modifier = Modifier.testTag("check_now_top_button")
                                 ) {
                                     if (isRefreshing) {
                                         CircularProgressIndicator(
@@ -321,6 +247,13 @@ class MainActivity : ComponentActivity() {
                                 NavigationBarItem(
                                     selected = currentTab == tab,
                                     onClick = { currentTab = tab },
+                                    colors = NavigationBarItemDefaults.colors(
+                                        selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        selectedTextColor = MaterialTheme.colorScheme.primary,
+                                        indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                                        unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                    ),
                                     icon = {
                                         if (isDashboard && openBatchesCount > 0) {
                                             BadgedBox(
@@ -360,6 +293,10 @@ class MainActivity : ComponentActivity() {
                         settings = settings,
                         isRefreshing = isRefreshing,
                         regions = regions,
+                        pous = pouList,
+                        isLoadingPous = isLoadingPous,
+                        onRegionChanged = viewModel::loadPousForRegion,
+                        onNavigateToTargets = { currentTab = ScreenTab.SETTINGS },
                         onToggleMonitoring = viewModel::toggleMonitoring,
                         onCheckNow = viewModel::triggerCheckNow,
                         onSaveSettings = viewModel::updateSettings,
@@ -387,6 +324,10 @@ fun ScaffoldContent(
     settings: com.example.ui.SettingsUiState,
     isRefreshing: Boolean,
     regions: List<com.example.data.model.DropdownOption>,
+    pous: List<com.example.data.model.DropdownOption> = emptyList(),
+    isLoadingPous: Boolean = false,
+    onRegionChanged: (String) -> Unit = {},
+    onNavigateToTargets: () -> Unit = {},
     onToggleMonitoring: () -> Unit,
     onCheckNow: () -> Unit,
     onSaveSettings: (
@@ -415,11 +356,15 @@ fun ScaffoldContent(
                 settings = settings,
                 isRefreshing = isRefreshing,
                 onToggleMonitoring = onToggleMonitoring,
-                onCheckNow = onCheckNow
+                onCheckNow = onCheckNow,
+                onNavigateToTargets = onNavigateToTargets
             )
             ScreenTab.SETTINGS -> ConfigScreen(
                 settings = settings,
                 regions = regions,
+                pous = pous,
+                isLoadingPous = isLoadingPous,
+                onRegionChanged = onRegionChanged,
                 onSaveSettings = onSaveSettings,
                 onAddTarget = onAddTarget,
                 onRemoveTarget = onRemoveTarget,

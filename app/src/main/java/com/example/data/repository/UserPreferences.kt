@@ -71,6 +71,10 @@ class UserPreferences(context: Context) {
         get() = prefs.getBoolean(KEY_TELEGRAM_ENABLED, false)
         set(value) = prefs.edit().putBoolean(KEY_TELEGRAM_ENABLED, value).apply()
 
+    var themeMode: String
+        get() = prefs.getString(KEY_THEME_MODE, "SYSTEM") ?: "SYSTEM"
+        set(value) = prefs.edit().putString(KEY_THEME_MODE, value).apply()
+
     fun getTargets(): List<BatchTarget> {
         val jsonStr = prefs.getString(KEY_TARGETS_JSON, null)
         if (jsonStr == null) {
@@ -160,6 +164,7 @@ class UserPreferences(context: Context) {
         private const val KEY_TELEGRAM_CHAT_ID = "telegram_chat_id"
         private const val KEY_TELEGRAM_ENABLED = "telegram_enabled"
         private const val KEY_TARGETS_JSON = "targets_json"
+        private const val KEY_THEME_MODE = "app_theme_mode"
     }
 }
 

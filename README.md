@@ -1,5 +1,6 @@
 # 📱 ICAI Batch Checker (ICAI Batch Slot Monitor)
 
+[![Release](https://img.shields.io/github/v/release/iambalaji-k/icaibatchcheck?color=brightgreen&label=Version)](https://github.com/iambalaji-k/icaibatchcheck/releases/tag/v2.0.0)
 [![Android 14 Ready](https://img.shields.io/badge/Android-14%2B%20Ready-green.svg)](https://developer.android.com/about/versions/14)
 [![Kotlin](https://img.shields.io/badge/Language-Kotlin-purple.svg)](https://kotlinlang.org/)
 [![Jetpack Compose](https://img.shields.io/badge/UI-Jetpack%20Compose%20%2F%20Material%203-blue.svg)](https://developer.android.com/jetpack/compose)
@@ -24,21 +25,32 @@ Because course slots at ICAI Program Organizing Units (POUs) fill up within minu
 ## ✨ Key Features
 
 ### ⚡ Multi-Target Background Monitoring
-* Concurrent background checking across multiple ICAI **Regions** (Southern, Western, Northern, Central, Eastern), **POU Cities** (Chennai, Bengaluru, Mumbai, Delhi, Hyderabad, etc.), and **Courses**.
+* Concurrent background checking across multiple ICAI **Regions** (Southern, Western, Northern, Central, Eastern), **POU Cities**, and **Courses**.
+* **Dynamic POU / Center Dropdown**: Centers & cities are fetched live and dynamically from ICAI portal based on the selected region.
+* **Unified Course Dropdown Selector**: Clean Material 3 dropdown keeping the configuration form compact and above the fold.
 * Powered by a persistent Android **Foreground Service** (`BatchMonitorService`) with user-configurable polling intervals (2m, 5m, 10m, 15m, 30m).
 
-### 🔔 Instant Dual-Alert Engine
+### 🔔 Instant Dual-Alert Engine & Zero Mock Data
 * **Android Push Notifications**: High-priority device alerts with custom sound, vibration, and big-text details.
 * **Telegram Bot Integration**: Delivers live HTML-formatted alerts directly to your personal Telegram chat or group, complete with instant registration links.
+* **Strict Live Error Reporting**: Zero simulated mock data fallbacks. If ICAI servers time out or face errors, the app accurately logs the error in the audit trail without triggering false alarms.
+
+### 🎨 3-Way Theme Switcher (Light, Dark & AMOLED)
+* Cyclical single-tap icon toggle in the Top App Bar:
+  * **Light Mode**: Crisp, high-contrast daytime layout.
+  * **Dark Mode**: Elegant slate dark palette.
+  * **AMOLED True Black**: Pure `#000000` pitch black background designed to completely turn off OLED pixels and maximize battery savings.
+  * Automatically defaults to your Android system theme and persists your preference.
 
 ### 🔋 Battery & Doze-Mode Optimization
 * Features CPU `WakeLock` management to wake up the processor silently during scheduled checks when screen is off.
-* Android 14 (API 34+) compatibility guards preventing background launch crashes (`ForegroundServiceStartNotAllowedException`).
+* Android 14+ compatibility guards preventing background launch crashes (`ForegroundServiceStartNotAllowedException`).
 
-### 📊 Modern Jetpack Compose Dashboard
+### 📊 Modern Material 3 Dashboard
+* **Centered KPI Metrics**: Quick-glance cards for *Open Seats* and *Total Batches* with balanced typography.
+* **Dedicated Action Banner**: Prominent, one-tap button to launch the official ICAI registration portal in your browser.
 * **Real-Time Search & Filter Chips**: Search by city, dates, or venue; filter by *All Batches* or *Open Seats Only (🎉)*.
 * **Seat Capacity Progress Bar**: Visual indicator showing open vs. total seats and percentage capacity.
-* **Date & Timings Clarity**: Displays exact Start Date, End Date, Batch Timings, Venue, and Course Fee.
 
 ### 💾 Local Cache & Activity Logs
 * **Room Database (`AppDatabase`)**: Persists batch records offline.
@@ -60,9 +72,9 @@ Because course slots at ICAI Program Organizing Units (POUs) fill up within minu
 
 ## 🚀 Getting Started & Installation
 
-### Option A: Install Pre-Built APK
-1. Go to the [Releases](https://github.com/iambalaji-k/icaibatchcheck/releases) section or [GitHub Actions](https://github.com/iambalaji-k/icaibatchcheck/actions).
-2. Download `icai-batch-checker-debug.apk`.
+### Option A: Install Pre-Built APK (Latest v2.0.0)
+1. Go to the [v2.0.0 Release](https://github.com/iambalaji-k/icaibatchcheck/releases/tag/v2.0.0).
+2. Download **`icaibatchcheckv2.0.apk`**.
 3. Install the APK on your Android device (Android 7.0 / API 24 or higher).
 
 ---

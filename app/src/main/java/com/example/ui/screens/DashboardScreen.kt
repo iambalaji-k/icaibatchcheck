@@ -5,13 +5,13 @@ import android.net.Uri
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -25,12 +25,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.EventSeat
 import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
@@ -42,7 +41,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
@@ -62,24 +60,24 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.R
 import com.example.data.db.BatchEntity
 import com.example.ui.SettingsUiState
+import com.example.ui.theme.EmeraldContainer
 import com.example.ui.theme.EmeraldOpenSeats
+import com.example.ui.theme.RedBg
 import com.example.ui.theme.RedFullSeats
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun DashboardScreen(
     batches: List<BatchEntity>,
@@ -124,154 +122,111 @@ fun DashboardScreen(
         modifier = Modifier
             .fillMaxSize()
             .padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        item { Spacer(modifier = Modifier.height(8.dp)) }
+        item { Spacer(modifier = Modifier.height(2.dp)) }
 
-        // Hero Banner Graphic
-        item {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(140.dp),
-                shape = RoundedCornerShape(28.dp),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-            ) {
-                Box(modifier = Modifier.fillMaxSize()) {
-                    Image(
-                        painter = painterResource(id = R.drawable.img_hero_banner_1785222447521),
-                        contentDescription = "ICAI Hero Banner",
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
-                    )
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(
-                                Brush.verticalGradient(
-                                    colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.8f))
-                                )
-                            )
-                    )
-                    Column(
-                        modifier = Modifier
-                            .align(Alignment.BottomStart)
-                            .padding(16.dp)
-                    ) {
-                        Text(
-                            text = "ICAI Batch Slot Monitor",
-                            style = MaterialTheme.typography.titleLarge.copy(
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold
-                            )
-                        )
-                        Text(
-                            text = "Live background checker for open seats",
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                color = Color.White.copy(alpha = 0.85f)
-                            )
-                        )
-                    }
-                }
-            }
-        }
-
-        // Monitoring Control Status Card
+        // Expressive Control Strip
         item {
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
                     .testTag("status_control_card"),
-                shape = RoundedCornerShape(28.dp),
+                shape = RoundedCornerShape(24.dp),
                 colors = CardDefaults.cardColors(
                     containerColor = if (settings.isMonitoringActive)
-                        MaterialTheme.colorScheme.primaryContainer
+                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
                     else
                         MaterialTheme.colorScheme.surfaceContainer
-                ),
-                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+                )
             ) {
                 Column(
-                    modifier = Modifier.padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
+                    // Status bar row
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
                             Box(
                                 modifier = Modifier
-                                    .size(12.dp)
+                                    .size(10.dp)
                                     .clip(CircleShape)
                                     .background(if (settings.isMonitoringActive) EmeraldOpenSeats else Color.Gray)
                             )
-                            Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = if (settings.isMonitoringActive) "Auto-Check ACTIVE" else "Monitoring PAUSED",
+                                text = if (settings.isMonitoringActive) "Auto-Checking" else "Monitoring Paused",
                                 style = MaterialTheme.typography.titleMedium.copy(
                                     fontWeight = FontWeight.Bold,
-                                    color = if (settings.isMonitoringActive) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+                                    color = if (settings.isMonitoringActive)
+                                        MaterialTheme.colorScheme.onPrimaryContainer
+                                    else
+                                        MaterialTheme.colorScheme.onSurface
                                 )
                             )
                         }
 
                         Surface(
-                            shape = RoundedCornerShape(20.dp),
-                            color = MaterialTheme.colorScheme.surface,
-                            modifier = Modifier.padding(horizontal = 4.dp)
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.surface
                         ) {
                             Text(
-                                text = "Every ${settings.intervalMinutes}m",
-                                style = MaterialTheme.typography.labelMedium.copy(
-                                    fontWeight = FontWeight.SemiBold,
+                                text = "${settings.intervalMinutes}m cycle",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.primary
                                 ),
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                             )
                         }
                     }
 
-                    val activeTargetsCount = settings.targets.count { it.isEnabled }
-                    val targetText = when {
-                        settings.targets.isEmpty() -> "No monitoring targets added yet. Please add a target in Settings."
-                        activeTargets.size > 1 -> "Monitoring $activeTargetsCount active targets (${activeTargets.joinToString { it.pouText }})"
-                        activeTargets.isNotEmpty() -> {
-                            val t = activeTargets.first()
-                            "Target: ${t.pouText} (${t.regionText}) — ${t.courseText}"
-                        }
-                        else -> "All monitoring targets disabled."
-                    }
-
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(
-                            text = targetText,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = if (settings.isMonitoringActive) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-
-                        if (settings.telegramEnabled) {
-                            Text(
-                                text = "📱 Telegram Bot Alerts Active",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = if (settings.isMonitoringActive) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.primary
-                            )
+                    // Active Target Chips Row (Clean, minimal)
+                    if (activeTargets.isNotEmpty()) {
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            activeTargets.forEach { target ->
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f)
+                                ) {
+                                    Text(
+                                        text = "${target.pouText} • ${target.courseText}",
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            fontWeight = FontWeight.Medium
+                                        ),
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
                         }
                     }
 
+                    // Action Buttons
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         Button(
                             onClick = onToggleMonitoring,
                             modifier = Modifier
                                 .weight(1f)
+                                .height(44.dp)
                                 .testTag("toggle_monitoring_button"),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = if (settings.isMonitoringActive) RedFullSeats else EmeraldOpenSeats
-                            )
+                            ),
+                            shape = RoundedCornerShape(14.dp)
                         ) {
                             Icon(
                                 imageVector = if (settings.isMonitoringActive) Icons.Default.Stop else Icons.Default.PlayArrow,
@@ -280,8 +235,8 @@ fun DashboardScreen(
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = if (settings.isMonitoringActive) "Stop Service" else "Start Service",
-                                color = Color.White,
+                                text = if (settings.isMonitoringActive) "Pause" else "Start Monitor",
+                                fontWeight = FontWeight.SemiBold,
                                 fontSize = 13.sp
                             )
                         }
@@ -291,11 +246,13 @@ fun DashboardScreen(
                             enabled = !isRefreshing,
                             modifier = Modifier
                                 .weight(1f)
-                                .testTag("check_now_button")
+                                .height(44.dp)
+                                .testTag("check_now_button"),
+                            shape = RoundedCornerShape(14.dp)
                         ) {
                             if (isRefreshing) {
                                 CircularProgressIndicator(
-                                    modifier = Modifier.size(18.dp),
+                                    modifier = Modifier.size(16.dp),
                                     strokeWidth = 2.dp
                                 )
                             } else {
@@ -305,7 +262,7 @@ fun DashboardScreen(
                                     modifier = Modifier.size(18.dp)
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
-                                Text("Check Now", fontSize = 13.sp)
+                                Text("Check Now", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                             }
                         }
                     }
@@ -313,117 +270,156 @@ fun DashboardScreen(
             }
         }
 
-        // Summary Metric Cards
+        // Expressive Key Metrics
         item {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                MetricCard(
+                // Open Seats Card
+                Surface(
                     modifier = Modifier.weight(1f),
-                    title = "Open Batches",
-                    value = "${openBatches.size}",
-                    valueColor = if (openBatches.isNotEmpty()) EmeraldOpenSeats else MaterialTheme.colorScheme.onSurface,
-                    subtitle = "With available seats"
-                )
-                MetricCard(
-                    modifier = Modifier.weight(1f),
-                    title = "Total Batches",
-                    value = "${filteredBatches.size}",
-                    valueColor = MaterialTheme.colorScheme.onSurface,
-                    subtitle = if (activeTargets.isNotEmpty()) "In active target(s)" else "No active target"
-                )
-            }
-        }
-
-        // Section Title: Available Batches
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Batch Slots Status",
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                )
-
-                OutlinedButton(
-                    onClick = {
-                        val browserIntent = Intent(
-                            Intent.ACTION_VIEW,
-                            Uri.parse("https://www.icaionlineregistration.org/LaunchBatchDetail.aspx")
-                        )
-                        context.startActivity(browserIntent)
-                    },
-                    modifier = Modifier.testTag("open_icai_web_button")
+                    shape = RoundedCornerShape(20.dp),
+                    color = if (openBatches.isNotEmpty()) EmeraldContainer.copy(alpha = 0.4f) else MaterialTheme.colorScheme.surfaceContainer
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.OpenInNew,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("ICAI Portal", fontSize = 12.sp)
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
+                        Text(
+                            text = "Open Seats",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = "${openBatches.size}",
+                            style = MaterialTheme.typography.headlineLarge.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = if (openBatches.isNotEmpty()) EmeraldOpenSeats else MaterialTheme.colorScheme.onSurface
+                            )
+                        )
+                    }
+                }
+
+                // Total Batches Card
+                Surface(
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(20.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainer
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
+                        Text(
+                            text = "Total Batches",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = "${filteredBatches.size}",
+                            style = MaterialTheme.typography.headlineLarge.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        )
+                    }
+                }
+
+                // Quick Portal Button
+                Surface(
+                    modifier = Modifier
+                        .clickable {
+                            val browserIntent = Intent(
+                                Intent.ACTION_VIEW,
+                                Uri.parse("https://www.icaionlineregistration.org/LaunchBatchDetail.aspx")
+                            )
+                            context.startActivity(browserIntent)
+                        }
+                        .testTag("open_icai_web_button"),
+                    shape = RoundedCornerShape(20.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainer
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.OpenInNew,
+                            contentDescription = "ICAI Portal",
+                            modifier = Modifier.size(24.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Portal",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
                 }
             }
         }
 
-        // Search & Filter Controls
+        // Search & Filter Row
         if (filteredBatches.isNotEmpty()) {
             item {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     OutlinedTextField(
                         value = searchQuery,
                         onValueChange = { searchQuery = it },
                         modifier = Modifier
                             .fillMaxWidth()
                             .testTag("dashboard_search_input"),
-                        placeholder = { Text("Search batches, venue, dates...") },
+                        placeholder = { Text("Filter batches, dates, venue...") },
                         leadingIcon = {
-                            Icon(imageVector = Icons.Default.Search, contentDescription = "Search")
+                            Icon(imageVector = Icons.Default.Search, contentDescription = "Search", modifier = Modifier.size(20.dp))
                         },
                         trailingIcon = {
                             if (searchQuery.isNotEmpty()) {
                                 IconButton(onClick = { searchQuery = "" }) {
-                                    Icon(imageVector = Icons.Default.Clear, contentDescription = "Clear search")
+                                    Icon(imageVector = Icons.Default.Clear, contentDescription = "Clear", modifier = Modifier.size(18.dp))
                                 }
                             }
                         },
                         singleLine = true,
                         shape = RoundedCornerShape(16.dp),
                         colors = OutlinedTextFieldDefaults.colors(
-                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                            focusedContainerColor = MaterialTheme.colorScheme.surface
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                            focusedContainerColor = MaterialTheme.colorScheme.surface,
+                            unfocusedBorderColor = Color.Transparent,
+                            focusedBorderColor = MaterialTheme.colorScheme.primary
                         )
                     )
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         FilterChip(
                             selected = !showOnlyOpen,
                             onClick = { showOnlyOpen = false },
-                            label = { Text("All Batches (${filteredBatches.size})") },
+                            label = { Text("All (${filteredBatches.size})") },
+                            shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.testTag("filter_chip_all")
                         )
                         FilterChip(
                             selected = showOnlyOpen,
                             onClick = { showOnlyOpen = true },
-                            label = { Text("Open Seats Only (${openBatches.size})") },
+                            label = { Text("Open Seats (${openBatches.size})") },
+                            shape = RoundedCornerShape(12.dp),
                             leadingIcon = {
                                 if (showOnlyOpen) {
                                     Icon(
                                         imageVector = Icons.Default.CheckCircle,
                                         contentDescription = null,
-                                        modifier = Modifier.size(16.dp)
+                                        modifier = Modifier.size(14.dp)
                                     )
                                 }
                             },
                             colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = EmeraldOpenSeats.copy(alpha = 0.2f),
+                                selectedContainerColor = EmeraldContainer,
                                 selectedLabelColor = EmeraldOpenSeats
                             ),
                             modifier = Modifier.testTag("filter_chip_open_only")
@@ -433,42 +429,40 @@ fun DashboardScreen(
             }
         }
 
+        // Batch List or Empty State
         if (displayedBatches.isEmpty()) {
             item {
-                Card(
+                Surface(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 12.dp),
-                    shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
+                        .padding(vertical = 24.dp),
+                    shape = RoundedCornerShape(24.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainer
                 ) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(24.dp),
+                            .padding(32.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.EventSeat,
                             contentDescription = null,
-                            modifier = Modifier.size(48.dp),
+                            modifier = Modifier.size(40.dp),
                             tint = MaterialTheme.colorScheme.primary
                         )
                         Text(
-                            text = if (settings.targets.isEmpty()) "No Monitoring Target Configured"
-                            else if (searchQuery.isNotBlank() || showOnlyOpen) "No Matching Batches Found"
-                            else "No Batch Data Loaded",
+                            text = if (settings.targets.isEmpty()) "No Targets Set"
+                            else if (searchQuery.isNotBlank() || showOnlyOpen) "No Matches"
+                            else "No Batches Loaded",
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                         )
                         Text(
-                            text = if (settings.targets.isEmpty())
-                                "Go to the Configuration tab to add the ICAI region, POU city, and course you want to monitor."
-                            else if (searchQuery.isNotBlank() || showOnlyOpen)
-                                "Try clearing your search query or switching filters."
-                            else
-                                "Tap 'Check Now' or start the Service to fetch live batch status for your target(s).",
-                            style = MaterialTheme.typography.bodyMedium,
+                            text = if (settings.targets.isEmpty()) "Add a target in the Targets tab"
+                            else if (searchQuery.isNotBlank() || showOnlyOpen) "Try adjusting your filters"
+                            else "Tap 'Check Now' to fetch live batches",
+                            style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -480,46 +474,7 @@ fun DashboardScreen(
             }
         }
 
-        item { Spacer(modifier = Modifier.height(24.dp)) }
-    }
-}
-
-@Composable
-fun MetricCard(
-    modifier: Modifier = Modifier,
-    title: String,
-    value: String,
-    valueColor: Color,
-    subtitle: String
-) {
-    Card(
-        modifier = modifier,
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Text(
-                text = value,
-                style = MaterialTheme.typography.headlineLarge.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = valueColor
-                )
-            )
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
+        item { Spacer(modifier = Modifier.height(16.dp)) }
     }
 }
 
@@ -532,151 +487,157 @@ fun BatchCardItem(batch: BatchEntity) {
         modifier = Modifier
             .fillMaxWidth()
             .testTag("batch_item_${batch.batchName}"),
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(22.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (batch.isOpen)
-                EmeraldOpenSeats.copy(alpha = 0.12f)
+                EmeraldContainer.copy(alpha = 0.25f)
             else
-                MaterialTheme.colorScheme.surface
-        ),
-        border = androidx.compose.foundation.BorderStroke(
-            1.dp,
-            if (batch.isOpen) EmeraldOpenSeats else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                MaterialTheme.colorScheme.surfaceContainer
         )
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Surface(
-                shape = RoundedCornerShape(8.dp),
-                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
-            ) {
-                Text(
-                    text = "${batch.courseName} • ${batch.pouName} (${batch.regionName})",
-                    style = MaterialTheme.typography.labelSmall.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                    ),
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                )
-            }
-
+            // Header Row: Course / City pill & Availability Badge
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = batch.batchName,
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                    modifier = Modifier.weight(1f)
-                )
-
                 Surface(
-                    shape = RoundedCornerShape(16.dp),
-                    color = if (batch.isOpen) EmeraldOpenSeats else RedFullSeats
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
                 ) {
                     Text(
-                        text = if (batch.isOpen) "🎉 ${batch.availableSeats} SEAT(S) OPEN" else "SEATS FULL",
+                        text = "${batch.pouName} • ${batch.courseName}",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = if (batch.isOpen) EmeraldOpenSeats else RedBg
+                ) {
+                    Text(
+                        text = if (batch.isOpen) "${batch.availableSeats} Open" else "Full",
                         style = MaterialTheme.typography.labelSmall.copy(
-                            color = Color.White,
+                            color = if (batch.isOpen) Color.White else RedFullSeats,
                             fontWeight = FontWeight.Bold
                         ),
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                     )
                 }
             }
 
-            if (batch.dates.isNotEmpty()) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Default.DateRange,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp),
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = batch.dates,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                }
-            }
+            // Batch Name Title
+            Text(
+                text = batch.batchName,
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
 
-            if (batch.timings.isNotEmpty()) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Default.Schedule,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp),
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = batch.timings,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                }
-            }
-
-            if (batch.venue.isNotEmpty()) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Default.LocationOn,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp),
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = batch.venue,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-
-            // Seat Capacity Progress Bar
+            // Clean Capacity Indicator
             val total = batch.totalSeats
             val avail = batch.availableSeats
             if (total > 0) {
                 val progress = (avail.toFloat() / total.toFloat()).coerceIn(0f, 1f)
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text(
-                            text = "Seat Capacity: $avail / $total available",
+                            text = "$avail of $total seats left",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
-                            text = "${(progress * 100).toInt()}% open",
+                            text = "${(progress * 100).toInt()}%",
                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                            color = if (batch.isOpen) EmeraldOpenSeats else RedFullSeats
+                            color = if (batch.isOpen) EmeraldOpenSeats else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                     LinearProgressIndicator(
                         progress = progress,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(6.dp)
+                            .height(5.dp)
                             .clip(RoundedCornerShape(3.dp)),
                         color = if (batch.isOpen) EmeraldOpenSeats else RedFullSeats,
                         trackColor = MaterialTheme.colorScheme.surfaceVariant
                     )
                 }
-            } else if (avail > 0) {
-                Text(
-                    text = "Available Seats: $avail",
-                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                    color = EmeraldOpenSeats
-                )
             }
 
+            // Key Info Row (Icons with clean values)
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                if (batch.dates.isNotBlank()) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.CalendarMonth,
+                            contentDescription = null,
+                            modifier = Modifier.size(15.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = batch.dates,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
+
+                if (batch.timings.isNotBlank()) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Schedule,
+                            contentDescription = null,
+                            modifier = Modifier.size(15.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = batch.timings,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
+
+                if (batch.venue.isNotBlank()) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.LocationOn,
+                            contentDescription = null,
+                            modifier = Modifier.size(15.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = batch.venue,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            }
+
+            // Bottom bar: Updated time + Register Button if open
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -698,9 +659,16 @@ fun BatchCardItem(batch: BatchEntity) {
                             context.startActivity(intent)
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = EmeraldOpenSeats),
-                        shape = RoundedCornerShape(8.dp)
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.height(34.dp)
                     ) {
-                        Text("Register Now", color = Color.White, fontSize = 12.sp)
+                        Icon(
+                            imageVector = Icons.Default.OpenInNew,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Register", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -711,5 +679,5 @@ fun BatchCardItem(batch: BatchEntity) {
 @Composable
 fun rememberTimeFormat(timestamp: Long): String {
     if (timestamp <= 0) return "Never"
-    return SimpleDateFormat("dd MMM, HH:mm:ss", Locale.getDefault()).format(Date(timestamp))
+    return SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date(timestamp))
 }

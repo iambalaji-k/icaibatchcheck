@@ -14,6 +14,7 @@ import com.example.data.repository.UserPreferences
 import com.example.service.BatchMonitorService
 import com.example.service.NotificationHelper
 import com.example.service.TelegramHelper
+import com.example.ui.theme.AppThemeMode
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -36,7 +37,8 @@ data class SettingsUiState(
     val telegramBotToken: String = "",
     val telegramChatId: String = "",
     val telegramEnabled: Boolean = false,
-    val targets: List<BatchTarget> = emptyList()
+    val targets: List<BatchTarget> = emptyList(),
+    val themeMode: AppThemeMode = AppThemeMode.SYSTEM
 )
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
@@ -50,6 +52,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     val logsFlow: StateFlow<List<CheckLogEntity>> = db.checkLogDao().getRecentLogs()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    private val _themeMode = MutableStateFlow(
+        try {
+            AppThemeMode.valueOf(prefs.themeMode)
+        } catch (e: Exception) {
+            AppThemeMode.SYSTEM
+        }
+    )
+    val themeMode: StateFlow<AppThemeMode> = _themeMode.asStateFlow()
 
     private val _settingsState = MutableStateFlow(readSettingsFromPrefs())
     val settingsState: StateFlow<SettingsUiState> = _settingsState.asStateFlow()
@@ -83,8 +94,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             telegramBotToken = prefs.telegramBotToken,
             telegramChatId = prefs.telegramChatId,
             telegramEnabled = prefs.telegramEnabled,
-            targets = prefs.getTargets()
+            targets = prefs.getTargets(),
+            themeMode = try {
+                AppThemeMode.valueOf(prefs.themeMode)
+            } catch (e: Exception) {
+                AppThemeMode.SYSTEM
+            }
         )
+    }
+
+    fun setThemeMode(mode: AppThemeMode) {
+        prefs.themeMode = mode.name
+        _themeMode.value = mode
+        _settingsState.value = readSettingsFromPrefs()
+        _statusMessage.value = "Theme switched to ${mode.title}"
     }
 
     fun loadRegions() {

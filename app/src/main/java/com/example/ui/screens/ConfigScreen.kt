@@ -116,6 +116,7 @@ fun ConfigScreen(
 
     var regionDropdownExpanded by remember { mutableStateOf(false) }
     var pouDropdownExpanded by remember { mutableStateOf(false) }
+    var courseDropdownExpanded by remember { mutableStateOf(false) }
 
     // Sync POU selection whenever pous list updates
     LaunchedEffect(pous) {
@@ -139,11 +140,11 @@ fun ConfigScreen(
         DropdownOption("5", "Western")
     )
 
-    val popularCourses = listOf(
+    val courseOptions = listOf(
         DropdownOption("48", "AICITSS - Advanced Information Technology (Adv ITT)"),
-        DropdownOption("45", "AICITSS - Management & Communication Skills (MCS)"),
-        DropdownOption("47", "ICITSS - Information Technology Course (ITT)"),
-        DropdownOption("46", "ICITSS - Orientation Course (OC)")
+        DropdownOption("49", "AICITSS - Management & Communication Skills (MCS)"),
+        DropdownOption("46", "ICITSS - Information Technology Course (ITT)"),
+        DropdownOption("47", "ICITSS - Orientation Course (OC)")
     )
 
     Column(
@@ -247,7 +248,8 @@ fun ConfigScreen(
                                             text = target.courseText,
                                             style = MaterialTheme.typography.bodySmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            maxLines = 1
+                                            maxLines = 2,
+                                            overflow = TextOverflow.Ellipsis
                                         )
                                     }
 
@@ -401,50 +403,51 @@ fun ConfigScreen(
                     }
                 }
 
-                // Course Selection with FlowRow FilterChips (Teal/Emerald Selected State)
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        text = "Course",
-                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                // Course Dropdown (Matches Region & Center dropdowns)
+                ExposedDropdownMenuBox(
+                    expanded = courseDropdownExpanded,
+                    onExpandedChange = { courseDropdownExpanded = !courseDropdownExpanded }
+                ) {
+                    OutlinedTextField(
+                        value = courseTxtInput,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Course") },
+                        leadingIcon = {
+                            Icon(Icons.Default.School, contentDescription = null, modifier = Modifier.size(18.dp))
+                        },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = courseDropdownExpanded) },
+                        shape = RoundedCornerShape(14.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor()
+                            .testTag("course_dropdown"),
+                        maxLines = 1,
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                            focusedContainerColor = MaterialTheme.colorScheme.surface
+                        )
                     )
 
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ExposedDropdownMenu(
+                        expanded = courseDropdownExpanded,
+                        onDismissRequest = { courseDropdownExpanded = false }
                     ) {
-                        popularCourses.forEach { crs ->
-                            val isSelected = courseValInput == crs.value || courseTxtInput.equals(crs.text, ignoreCase = true)
-                            FilterChip(
-                                selected = isSelected,
-                                onClick = {
-                                    courseValInput = crs.value
-                                    courseTxtInput = crs.text
-                                },
-                                label = {
+                        courseOptions.forEach { crs ->
+                            DropdownMenuItem(
+                                text = {
                                     Text(
                                         text = crs.text,
-                                        fontSize = 12.sp,
-                                        lineHeight = 16.sp,
-                                        maxLines = 2,
+                                        maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
                                     )
                                 },
-                                leadingIcon = if (isSelected) {
-                                    {
-                                        Icon(
-                                            imageVector = Icons.Default.Check,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(16.dp)
-                                        )
-                                    }
-                                } else null,
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    selectedLeadingIconColor = MaterialTheme.colorScheme.onPrimaryContainer
-                                ),
-                                shape = RoundedCornerShape(12.dp)
+                                onClick = {
+                                    courseValInput = crs.value
+                                    courseTxtInput = crs.text
+                                    courseDropdownExpanded = false
+                                }
                             )
                         }
                     }
@@ -526,7 +529,14 @@ fun ConfigScreen(
                                     mockModeEnabled
                                 )
                             },
-                            label = { Text("${mins}m") },
+                            label = {
+                                Text(
+                                    text = "${mins}m",
+                                    maxLines = 1,
+                                    softWrap = false,
+                                    fontSize = 12.sp
+                                )
+                            },
                             shape = RoundedCornerShape(10.dp),
                             modifier = Modifier
                                 .weight(1f)

@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -225,8 +226,9 @@ fun DashboardScreen(
                             enabled = hasTargets || settings.isMonitoringActive,
                             modifier = Modifier
                                 .weight(1f)
-                                .height(44.dp)
+                                .height(48.dp)
                                 .testTag("toggle_monitoring_button"),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = if (settings.isMonitoringActive) RedFullSeats else EmeraldOpenSeats
                             ),
@@ -243,7 +245,9 @@ fun DashboardScreen(
                                 else if (!hasTargets) "No Targets"
                                 else "Start Monitor",
                                 fontWeight = FontWeight.SemiBold,
-                                fontSize = 13.sp
+                                fontSize = 12.sp,
+                                maxLines = 1,
+                                softWrap = false
                             )
                         }
 
@@ -252,8 +256,9 @@ fun DashboardScreen(
                             enabled = !isRefreshing,
                             modifier = Modifier
                                 .weight(1f)
-                                .height(44.dp)
+                                .height(48.dp)
                                 .testTag("check_now_button"),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
                             shape = RoundedCornerShape(14.dp)
                         ) {
                             if (isRefreshing) {
@@ -268,7 +273,13 @@ fun DashboardScreen(
                                     modifier = Modifier.size(18.dp)
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
-                                Text("Check Now", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                                Text(
+                                    text = "Check Now",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    maxLines = 1,
+                                    softWrap = false
+                                )
                             }
                         }
                     }

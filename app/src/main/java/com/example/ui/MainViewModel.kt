@@ -71,11 +71,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _regionsList = MutableStateFlow<List<DropdownOption>>(emptyList())
     val regionsList: StateFlow<List<DropdownOption>> = _regionsList.asStateFlow()
 
+    private val _pouList = MutableStateFlow<List<DropdownOption>>(emptyList())
+    val pouList: StateFlow<List<DropdownOption>> = _pouList.asStateFlow()
+
+    private val _isLoadingPous = MutableStateFlow(false)
+    val isLoadingPous: StateFlow<Boolean> = _isLoadingPous.asStateFlow()
+
     private val _statusMessage = MutableStateFlow<String?>(null)
     val statusMessage: StateFlow<String?> = _statusMessage.asStateFlow()
 
     init {
         loadRegions()
+        loadPousForRegion(prefs.regionValue)
     }
 
     private fun readSettingsFromPrefs(): SettingsUiState {
@@ -107,7 +114,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         prefs.themeMode = mode.name
         _themeMode.value = mode
         _settingsState.value = readSettingsFromPrefs()
-        _statusMessage.value = "Theme switched to ${mode.title}"
+        _statusMessage.value = "Switched to ${mode.title} mode"
+    }
+
+    fun cycleThemeMode() {
+        val nextMode = when (_themeMode.value) {
+            AppThemeMode.SYSTEM -> AppThemeMode.DARK
+            AppThemeMode.LIGHT -> AppThemeMode.DARK
+            AppThemeMode.DARK -> AppThemeMode.AMOLED
+            AppThemeMode.AMOLED -> AppThemeMode.LIGHT
+        }
+        setThemeMode(nextMode)
     }
 
     fun loadRegions() {
@@ -118,6 +135,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 }
                 is ScraperResult.Error -> {}
             }
+        }
+    }
+
+    fun loadPousForRegion(regionValue: String) {
+        viewModelScope.launch {
+            _isLoadingPous.value = true
+            when (val res = scraperRepo.fetchPousForRegion(regionValue)) {
+                is ScraperResult.Success -> {
+                    _pouList.value = res.data
+                }
+                is ScraperResult.Error -> {
+                    _statusMessage.value = res.message
+                }
+            }
+            _isLoadingPous.value = false
         }
     }
 

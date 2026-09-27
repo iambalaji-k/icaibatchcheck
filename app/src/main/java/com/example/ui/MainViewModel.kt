@@ -3,15 +3,19 @@ package com.example.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.data.IcaiCatalog
 import com.example.data.db.AppDatabase
+import com.example.data.db.BatchDao
 import com.example.data.db.BatchEntity
 import com.example.data.db.CheckLogEntity
 import com.example.data.model.BatchTarget
 import com.example.data.model.DropdownOption
 import com.example.data.model.ScraperResult
+import com.example.data.repository.BatchParser
 import com.example.data.repository.IcaiScraperRepository
 import com.example.data.repository.UserPreferences
 import com.example.service.BatchMonitorService
+import com.example.service.MonitoringScheduler
 import com.example.service.NotificationHelper
 import com.example.service.TelegramHelper
 import com.example.ui.theme.AppThemeMode
@@ -19,21 +23,18 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 data class SettingsUiState(
-    val regionValue: String = "4",
-    val regionText: String = "Southern",
-    val pouValue: String = "3",
-    val pouText: String = "Chennai",
-    val courseValue: String = "48",
-    val courseText: String = "AICITSS - Advanced Information Technology",
     val intervalMinutes: Int = 5,
+    val isMonitoringPersisted: Boolean = false,
     val isMonitoringActive: Boolean = false,
+    val isMonitoringWorkFallback: Boolean = false,
     val mockModeEnabled: Boolean = false,
-    val soundEnabled: Boolean = true,
-    val notifyOnlyNewSeats: Boolean = true,
     val telegramBotToken: String = "",
     val telegramChatId: String = "",
     val telegramEnabled: Boolean = false,
@@ -45,7 +46,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val db = AppDatabase.getDatabase(application)
     private val prefs = UserPreferences(application)
-    private val scraperRepo = IcaiScraperRepository()
+    private val scraperRepo = IcaiScraperRepository
 
     val batchesFlow: StateFlow<List<BatchEntity>> = db.batchDao().getAllBatches()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -53,17 +54,24 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val logsFlow: StateFlow<List<CheckLogEntity>> = db.checkLogDao().getRecentLogs()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    private val _themeMode = MutableStateFlow(
-        try {
-            AppThemeMode.valueOf(prefs.themeMode)
-        } catch (e: Exception) {
-            AppThemeMode.SYSTEM
-        }
-    )
+    private val _themeMode = MutableStateFlow(parseThemeMode(prefs.themeMode))
     val themeMode: StateFlow<AppThemeMode> = _themeMode.asStateFlow()
 
-    private val _settingsState = MutableStateFlow(readSettingsFromPrefs())
-    val settingsState: StateFlow<SettingsUiState> = _settingsState.asStateFlow()
+    private val _settingsBase = MutableStateFlow(readSettingsFromPrefs())
+
+    // UI shows the service's live state; prefs only serve as persistence.
+    val settingsState: StateFlow<SettingsUiState> = combine(
+        _settingsBase,
+        BatchMonitorService.isMonitoringLive
+    ) { base, live ->
+        // Fast mode: trust the running service, plus the degraded WorkManager
+        // fallback (checks run at 15m while the loop could not be restarted).
+        // Periodic mode: WorkManager's schedule survives reboot, so the
+        // persisted flag is the truth there.
+        base.copy(isMonitoringActive = live || (base.isMonitoringPersisted &&
+            (!MonitoringScheduler.isFastInterval(base.intervalMinutes) || base.isMonitoringWorkFallback)))
+    }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, readSettingsFromPrefs())
 
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
@@ -71,8 +79,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _regionsList = MutableStateFlow<List<DropdownOption>>(emptyList())
     val regionsList: StateFlow<List<DropdownOption>> = _regionsList.asStateFlow()
 
+    private val _regionsOffline = MutableStateFlow(false)
+    val regionsOffline: StateFlow<Boolean> = _regionsOffline.asStateFlow()
+
     private val _pouList = MutableStateFlow<List<DropdownOption>>(emptyList())
     val pouList: StateFlow<List<DropdownOption>> = _pouList.asStateFlow()
+
+    private val _pousOffline = MutableStateFlow(false)
+    val pousOffline: StateFlow<Boolean> = _pousOffline.asStateFlow()
 
     private val _isLoadingPous = MutableStateFlow(false)
     val isLoadingPous: StateFlow<Boolean> = _isLoadingPous.asStateFlow()
@@ -82,38 +96,58 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         loadRegions()
-        loadPousForRegion(prefs.regionValue)
+        refreshPouList()
     }
+
+    private fun applyPouResult(regionValue: String, res: ScraperResult<List<DropdownOption>>) {
+        when (res) {
+            is ScraperResult.Success -> {
+                _pouList.value = res.data
+                _pousOffline.value = false
+            }
+            is ScraperResult.Error -> {
+                // Keep the picker usable offline, but label the list as bundled.
+                _pouList.value = IcaiCatalog.fallbackPousForRegion(regionValue)
+                _pousOffline.value = true
+                _statusMessage.value = "Could not load centers from ICAI — showing bundled offline list. ${res.message}"
+            }
+        }
+    }
+
+    private fun refreshPouList() {
+        viewModelScope.launch {
+            _isLoadingPous.value = true
+            applyPouResult(prefs.regionValue, scraperRepo.fetchPousForRegion(prefs.regionValue))
+            _isLoadingPous.value = false
+        }
+    }
+
+    private fun parseThemeMode(name: String): AppThemeMode =
+        runCatching { AppThemeMode.valueOf(name) }.getOrDefault(AppThemeMode.SYSTEM)
 
     private fun readSettingsFromPrefs(): SettingsUiState {
         return SettingsUiState(
-            regionValue = prefs.regionValue,
-            regionText = prefs.regionText,
-            pouValue = prefs.pouValue,
-            pouText = prefs.pouText,
-            courseValue = prefs.courseValue,
-            courseText = prefs.courseText,
             intervalMinutes = prefs.intervalMinutes,
+            isMonitoringPersisted = prefs.isMonitoringActive,
             isMonitoringActive = prefs.isMonitoringActive,
+            isMonitoringWorkFallback = prefs.monitoringWorkFallback,
             mockModeEnabled = prefs.mockModeEnabled,
-            soundEnabled = prefs.soundEnabled,
-            notifyOnlyNewSeats = prefs.notifyOnlyNewSeats,
             telegramBotToken = prefs.telegramBotToken,
             telegramChatId = prefs.telegramChatId,
             telegramEnabled = prefs.telegramEnabled,
             targets = prefs.getTargets(),
-            themeMode = try {
-                AppThemeMode.valueOf(prefs.themeMode)
-            } catch (e: Exception) {
-                AppThemeMode.SYSTEM
-            }
+            themeMode = parseThemeMode(prefs.themeMode)
         )
+    }
+
+    private fun refreshSettings() {
+        _settingsBase.value = readSettingsFromPrefs()
     }
 
     fun setThemeMode(mode: AppThemeMode) {
         prefs.themeMode = mode.name
         _themeMode.value = mode
-        _settingsState.value = readSettingsFromPrefs()
+        refreshSettings()
         _statusMessage.value = "Switched to ${mode.title} mode"
     }
 
@@ -132,8 +166,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             when (val res = scraperRepo.fetchInitialRegions()) {
                 is ScraperResult.Success -> {
                     _regionsList.value = res.data
+                    _regionsOffline.value = false
                 }
-                is ScraperResult.Error -> {}
+                is ScraperResult.Error -> {
+                    // Keep the picker usable offline, but label the list as bundled.
+                    _regionsList.value = IcaiCatalog.FALLBACK_REGIONS
+                    _regionsOffline.value = true
+                    _statusMessage.value = "Could not load regions from ICAI — showing bundled offline list. ${res.message}"
+                }
             }
         }
     }
@@ -141,75 +181,91 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun loadPousForRegion(regionValue: String) {
         viewModelScope.launch {
             _isLoadingPous.value = true
-            when (val res = scraperRepo.fetchPousForRegion(regionValue)) {
-                is ScraperResult.Success -> {
-                    _pouList.value = res.data
-                }
-                is ScraperResult.Error -> {
-                    _statusMessage.value = res.message
-                }
-            }
+            applyPouResult(regionValue, scraperRepo.fetchPousForRegion(regionValue))
             _isLoadingPous.value = false
         }
     }
 
     fun toggleMonitoring() {
-        val current = prefs.isMonitoringActive
-        if (current) {
-            BatchMonitorService.stopMonitoring(getApplication())
+        val app = getApplication<Application>()
+        // Act on what the UI shows: after process recreation the live flow is
+        // false (service dead), so the button means "Start" — never stop.
+        if (settingsState.value.isMonitoringActive) {
+            MonitoringScheduler.stop(app)
             prefs.isMonitoringActive = false
+            prefs.monitoringWorkFallback = false
             _statusMessage.value = "Monitoring Stopped."
         } else {
-            BatchMonitorService.startMonitoring(getApplication())
-            prefs.isMonitoringActive = true
-            _statusMessage.value = "Background Monitoring Started (Every ${prefs.intervalMinutes}m)."
+            val started = MonitoringScheduler.start(app, prefs.intervalMinutes)
+            if (started) {
+                prefs.isMonitoringActive = true
+                _statusMessage.value = if (MonitoringScheduler.isFastInterval(prefs.intervalMinutes)) {
+                    "Fast mode — keeps a visible notification for exact ${prefs.intervalMinutes}m checks."
+                } else {
+                    "Monitoring started (every ${prefs.intervalMinutes}m, battery-friendly)."
+                }
+            } else {
+                prefs.isMonitoringActive = false
+                _statusMessage.value = "Could not start monitoring. Android blocked the background service. Retry with the app in the foreground."
+            }
         }
-        _settingsState.value = readSettingsFromPrefs()
+        refreshSettings()
     }
 
     fun triggerCheckNow() {
         viewModelScope.launch {
+            val app = getApplication<Application>()
+            val startedAt = BatchMonitorService.lastCheckCompletedAt.value
+            val periodicMode = settingsState.value.isMonitoringActive &&
+                !MonitoringScheduler.isFastInterval(prefs.intervalMinutes)
+            val started = if (periodicMode) {
+                MonitoringScheduler.checkNowViaWork(app)
+                true
+            } else {
+                BatchMonitorService.checkNow(app)
+            }
+            if (!started) {
+                _statusMessage.value = "Could not start the check. Android blocked the service; try again with the app open."
+                return@launch
+            }
             _isRefreshing.value = true
-            BatchMonitorService.checkNow(getApplication())
             _statusMessage.value = "Checking ICAI portal for all targets..."
-            kotlinx.coroutines.delay(1500)
+            // Wait for the service to signal completion (any outcome), bounded only
+            // as a safety net. Previously this waited on prefs that never change on
+            // network errors, freezing the spinner for the full window.
+            val completed = withTimeoutOrNull(CHECK_NOW_MAX_WAIT_MS) {
+                BatchMonitorService.lastCheckCompletedAt.first { it > startedAt }
+            }
+            if (completed == null) {
+                _statusMessage.value = "Still checking — results will appear in the Activity tab."
+            }
             _isRefreshing.value = false
-            _settingsState.value = readSettingsFromPrefs()
+            refreshSettings()
         }
     }
 
-    fun updateSettings(
-        regionVal: String,
-        regionTxt: String,
-        pouVal: String,
-        pouTxt: String,
-        courseVal: String,
-        courseTxt: String,
-        intervalMins: Int,
-        mockMode: Boolean
-    ) {
-        prefs.regionValue = regionVal
-        prefs.regionText = regionTxt
-        prefs.pouValue = pouVal
-        prefs.pouText = pouTxt
-        prefs.courseValue = courseVal
-        prefs.courseText = courseTxt
+    fun updateInterval(intervalMins: Int) {
         prefs.intervalMinutes = intervalMins
-        prefs.mockModeEnabled = mockMode
-
-        _settingsState.value = readSettingsFromPrefs()
-        _statusMessage.value = "Settings updated successfully."
-
+        refreshSettings()
+        _statusMessage.value = "Check interval set to ${intervalMins}m." +
+            if (MonitoringScheduler.isFastInterval(intervalMins)) " (fast mode: visible notification kept)" else ""
         if (prefs.isMonitoringActive) {
-            BatchMonitorService.startMonitoring(getApplication()) // restart loop with new settings
+            // Move between fast loop and WorkManager schedule as needed.
+            MonitoringScheduler.reschedule(getApplication(), intervalMins)
         }
+    }
+
+    fun setMockMode(enabled: Boolean) {
+        prefs.mockModeEnabled = enabled
+        refreshSettings()
+        _statusMessage.value = if (enabled) "Simulation mode ON — alerts use fake data." else "Simulation mode OFF."
     }
 
     fun addTarget(newTarget: BatchTarget) {
         val current = prefs.getTargets().toMutableList()
         current.add(newTarget)
         prefs.saveTargets(current)
-        _settingsState.value = readSettingsFromPrefs()
+        refreshSettings()
         _statusMessage.value = "Added new monitoring target for ${newTarget.pouText}!"
     }
 
@@ -219,10 +275,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         prefs.saveTargets(current)
         if (targetToRemove != null) {
             viewModelScope.launch {
-                db.batchDao().deleteBatchesByPouAndCourse(targetToRemove.pouText, targetToRemove.courseText)
+                db.batchDao().deleteBatchesByTarget(
+                    targetToRemove.regionText,
+                    targetToRemove.pouText,
+                    targetToRemove.courseText
+                )
             }
         }
-        _settingsState.value = readSettingsFromPrefs()
+        refreshSettings()
         _statusMessage.value = "Target removed."
     }
 
@@ -231,14 +291,24 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             if (it.id == targetId) it.copy(isEnabled = !it.isEnabled) else it
         }
         prefs.saveTargets(current)
-        _settingsState.value = readSettingsFromPrefs()
+        refreshSettings()
     }
 
     fun updateTelegramSettings(token: String, chatId: String, enabled: Boolean) {
-        prefs.telegramBotToken = token
-        prefs.telegramChatId = chatId
+        if (enabled) {
+            if (!TelegramHelper.isValidToken(token)) {
+                _statusMessage.value = "Bot Token format looks invalid (expected 123456:ABC-...)."
+                return
+            }
+            if (!TelegramHelper.isValidChatId(chatId)) {
+                _statusMessage.value = "Chat ID must be numeric or a public @username (use @userinfobot to find yours)."
+                return
+            }
+        }
+        prefs.telegramBotToken = token.trim()
+        prefs.telegramChatId = chatId.trim()
         prefs.telegramEnabled = enabled
-        _settingsState.value = readSettingsFromPrefs()
+        refreshSettings()
         _statusMessage.value = "Telegram Bot configuration saved."
     }
 
@@ -276,5 +346,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun clearStatusMessage() {
         _statusMessage.value = null
     }
-}
 
+    fun notifyPermissionRequested() {
+        _statusMessage.value = "Notifications are blocked — slot alerts will not appear. Enable them in System Settings > Apps > ICAI Batch Checker."
+    }
+
+    companion object {
+        private const val CHECK_NOW_MAX_WAIT_MS = 30_000L
+    }
+}

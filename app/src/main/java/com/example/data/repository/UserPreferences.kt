@@ -11,6 +11,22 @@ class UserPreferences(context: Context) {
     private val prefs: SharedPreferences =
         context.getSharedPreferences("icai_checker_prefs", Context.MODE_PRIVATE)
 
+    // Credentials live in a separate file excluded from cloud backup and device transfer
+    // (see res/xml/backup_rules.xml and data_extraction_rules.xml).
+    private val secretPrefs: SharedPreferences =
+        context.getSharedPreferences(SECRETS_FILE, Context.MODE_PRIVATE)
+
+    init {
+        // One-time migration: move previously stored credentials out of the backed-up prefs file.
+        if (prefs.contains(KEY_TELEGRAM_TOKEN) || prefs.contains(KEY_TELEGRAM_CHAT_ID)) {
+            secretPrefs.edit()
+                .putString(KEY_TELEGRAM_TOKEN, prefs.getString(KEY_TELEGRAM_TOKEN, "") ?: "")
+                .putString(KEY_TELEGRAM_CHAT_ID, prefs.getString(KEY_TELEGRAM_CHAT_ID, "") ?: "")
+                .apply()
+            prefs.edit().remove(KEY_TELEGRAM_TOKEN).remove(KEY_TELEGRAM_CHAT_ID).apply()
+        }
+    }
+
     var regionValue: String
         get() = prefs.getString(KEY_REGION_VAL, "4") ?: "4" // 4 = Southern
         set(value) = prefs.edit().putString(KEY_REGION_VAL, value).apply()
@@ -43,13 +59,19 @@ class UserPreferences(context: Context) {
         get() = prefs.getBoolean(KEY_IS_MONITORING, false)
         set(value) = prefs.edit().putBoolean(KEY_IS_MONITORING, value).apply()
 
-    var notifyOnlyNewSeats: Boolean
-        get() = prefs.getBoolean(KEY_NOTIFY_NEW, true)
-        set(value) = prefs.edit().putBoolean(KEY_NOTIFY_NEW, value).apply()
+    /** When continuous monitoring started (0 when stopped); drives the Android 14+ dataSync quota guard. */
+    var monitoringStartedAt: Long
+        get() = prefs.getLong(KEY_MONITORING_SINCE, 0L)
+        set(value) = prefs.edit().putLong(KEY_MONITORING_SINCE, value).apply()
 
-    var soundEnabled: Boolean
-        get() = prefs.getBoolean(KEY_SOUND, true)
-        set(value) = prefs.edit().putBoolean(KEY_SOUND, value).apply()
+    /**
+     * Fast mode fell back to the WorkManager schedule because Android blocked
+     * the background service start (12+). Checks still run — just every 15m —
+     * and the UI shows Active instead of a false Paused.
+     */
+    var monitoringWorkFallback: Boolean
+        get() = prefs.getBoolean(KEY_MONITORING_WORK_FALLBACK, false)
+        set(value) = prefs.edit().putBoolean(KEY_MONITORING_WORK_FALLBACK, value).apply()
 
     var lastCheckTime: Long
         get() = prefs.getLong(KEY_LAST_CHECK, 0L)
@@ -60,12 +82,12 @@ class UserPreferences(context: Context) {
         set(value) = prefs.edit().putBoolean(KEY_MOCK_MODE, value).apply()
 
     var telegramBotToken: String
-        get() = prefs.getString(KEY_TELEGRAM_TOKEN, "") ?: ""
-        set(value) = prefs.edit().putString(KEY_TELEGRAM_TOKEN, value).apply()
+        get() = secretPrefs.getString(KEY_TELEGRAM_TOKEN, "") ?: ""
+        set(value) = secretPrefs.edit().putString(KEY_TELEGRAM_TOKEN, value).apply()
 
     var telegramChatId: String
-        get() = prefs.getString(KEY_TELEGRAM_CHAT_ID, "") ?: ""
-        set(value) = prefs.edit().putString(KEY_TELEGRAM_CHAT_ID, value).apply()
+        get() = secretPrefs.getString(KEY_TELEGRAM_CHAT_ID, "") ?: ""
+        set(value) = secretPrefs.edit().putString(KEY_TELEGRAM_CHAT_ID, value).apply()
 
     var telegramEnabled: Boolean
         get() = prefs.getBoolean(KEY_TELEGRAM_ENABLED, false)
@@ -143,11 +165,8 @@ class UserPreferences(context: Context) {
         }
     }
 
-    private fun String?.isNull_or_blank(): Boolean {
-        return this == null || this.trim().isEmpty()
-    }
-
     companion object {
+        const val SECRETS_FILE = "icai_checker_secrets"
         private const val KEY_REGION_VAL = "region_val"
         private const val KEY_REGION_TXT = "region_txt"
         private const val KEY_POU_VAL = "pou_val"
@@ -156,8 +175,8 @@ class UserPreferences(context: Context) {
         private const val KEY_COURSE_TXT = "course_txt"
         private const val KEY_INTERVAL_MINS = "interval_mins"
         private const val KEY_IS_MONITORING = "is_monitoring"
-        private const val KEY_NOTIFY_NEW = "notify_new"
-        private const val KEY_SOUND = "sound_enabled"
+        private const val KEY_MONITORING_SINCE = "monitoring_started_at"
+        private const val KEY_MONITORING_WORK_FALLBACK = "monitoring_work_fallback"
         private const val KEY_LAST_CHECK = "last_check_time"
         private const val KEY_MOCK_MODE = "mock_mode"
         private const val KEY_TELEGRAM_TOKEN = "telegram_token"

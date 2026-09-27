@@ -8,6 +8,7 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 
 enum class AppThemeMode(val title: String) {
     SYSTEM("System Default"),
@@ -86,3 +87,24 @@ fun IcaiBatchCheckerTheme(
         content = content
     )
 }
+
+// Status colors that adapt to the active scheme (light palettes clash on dark/AMOLED).
+
+@Composable
+private fun schemeIsDark(): Boolean = MaterialTheme.colorScheme.background.luminance() < 0.5f
+
+@Composable
+fun StatusOpen(): Color =
+    if (schemeIsDark()) EmeraldOpenSeatsBright else EmeraldOpenSeats
+
+@Composable
+fun StatusOpenContainer(): Color =
+    if (schemeIsDark()) Color(0xFF064E3B) else EmeraldContainer
+
+@Composable
+fun StatusFull(): Color =
+    if (schemeIsDark()) Color(0xFFFB7185) else RedFullSeats
+
+@Composable
+fun StatusFullContainer(): Color =
+    if (schemeIsDark()) Color(0xFF4C051A) else RedBg

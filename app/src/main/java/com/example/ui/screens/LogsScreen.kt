@@ -1,8 +1,6 @@
 package com.example.ui.screens
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -11,17 +9,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DeleteSweep
-import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.Info
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -29,30 +23,35 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.example.data.db.CheckLogEntity
-import com.example.ui.theme.EmeraldContainer
-import com.example.ui.theme.EmeraldOpenSeats
-import com.example.ui.theme.RedBg
-import com.example.ui.theme.RedFullSeats
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import com.example.ui.theme.StatusFull
+import com.example.ui.theme.StatusFullContainer
+import com.example.ui.theme.StatusOpen
+import com.example.ui.theme.StatusOpenContainer
 
 @Composable
 fun LogsScreen(
     logs: List<CheckLogEntity>,
     onClearLogs: () -> Unit
 ) {
+    var showClearDialog by rememberSaveable { mutableStateOf(false) }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -73,6 +72,7 @@ fun LogsScreen(
             ) {
                 Text(
                     text = "Activity Logs",
+                    modifier = Modifier.semantics { heading() },
                     style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
                 )
 
@@ -83,7 +83,7 @@ fun LogsScreen(
                     ) {
                         Text(
                             text = "${logs.size}",
-                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                             color = MaterialTheme.colorScheme.onPrimaryContainer,
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
                         )
@@ -93,7 +93,7 @@ fun LogsScreen(
 
             if (logs.isNotEmpty()) {
                 IconButton(
-                    onClick = onClearLogs,
+                    onClick = { showClearDialog = true },
                     modifier = Modifier.testTag("clear_logs_button")
                 ) {
                     Icon(
@@ -151,15 +151,36 @@ fun LogsScreen(
             }
         }
     }
+
+    if (showClearDialog) {
+        AlertDialog(
+            onDismissRequest = { showClearDialog = false },
+            title = { Text("Clear activity logs?") },
+            text = { Text("This permanently deletes the check history on this device.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showClearDialog = false
+                        onClearLogs()
+                    },
+                    modifier = Modifier.testTag("confirm_clear_logs")
+                ) { Text("Clear", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearDialog = false }) { Text("Cancel") }
+            }
+        )
+    }
 }
 
 @Composable
 fun LogCardItem(log: CheckLogEntity) {
-    val timeStr = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date(log.timestamp))
+    val context = LocalContext.current
+    val timeStr = formatTimestamp(context, log.timestamp)
 
     val (badgeBg, badgeColor, badgeText) = when (log.status) {
-        "ALERT_TRIGGERED" -> Triple(EmeraldContainer, EmeraldOpenSeats, "SLOT OPEN")
-        "ERROR" -> Triple(RedBg, RedFullSeats, "ERROR")
+        "ALERT_TRIGGERED" -> Triple(StatusOpenContainer(), StatusOpen(), "SLOT OPEN")
+        "ERROR" -> Triple(StatusFullContainer(), StatusFull(), "ERROR")
         else -> Triple(MaterialTheme.colorScheme.surfaceContainerHigh, MaterialTheme.colorScheme.primary, "CHECKED")
     }
 
@@ -182,12 +203,13 @@ fun LogCardItem(log: CheckLogEntity) {
             ) {
                 Text(
                     text = badgeText,
-                    style = MaterialTheme.typography.labelSmall.copy(
+                    style = MaterialTheme.typography.labelMedium.copy(
                         color = badgeColor,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 10.sp
+                        fontWeight = FontWeight.Bold
                     ),
-                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
+                    modifier = Modifier
+                        .semantics { contentDescription = "Status: $badgeText" }
+                        .padding(horizontal = 7.dp, vertical = 3.dp)
                 )
             }
 
@@ -205,7 +227,7 @@ fun LogCardItem(log: CheckLogEntity) {
                 if (log.pouName.isNotBlank() || log.courseName.isNotBlank()) {
                     Text(
                         text = "${log.pouName} • ${log.courseName}",
-                        style = MaterialTheme.typography.labelSmall,
+                        style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -216,7 +238,7 @@ fun LogCardItem(log: CheckLogEntity) {
             // Time
             Text(
                 text = timeStr,
-                style = MaterialTheme.typography.labelSmall,
+                style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }

@@ -1,12 +1,9 @@
 package com.example.ui.screens
 
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,9 +15,11 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -32,7 +31,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.EventSeat
 import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.OpenInNew
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Schedule
@@ -53,31 +52,36 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.data.IcaiUrls
 import com.example.data.db.BatchEntity
+import com.example.data.repository.BatchParser
 import com.example.ui.SettingsUiState
-import com.example.ui.theme.EmeraldContainer
-import com.example.ui.theme.EmeraldOpenSeats
-import com.example.ui.theme.RedBg
-import com.example.ui.theme.RedFullSeats
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import com.example.ui.theme.StatusFull
+import com.example.ui.theme.StatusFullContainer
+import com.example.ui.theme.StatusOpen
+import com.example.ui.theme.StatusOpenContainer
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -91,34 +95,41 @@ fun DashboardScreen(
 ) {
     val context = LocalContext.current
     val activeTargets = settings.targets.filter { it.isEnabled }
-    val filteredBatches = if (activeTargets.isEmpty()) {
-        emptyList()
-    } else {
-        batches.filter { batch ->
-            activeTargets.any { target ->
-                batch.pouName.equals(target.pouText, ignoreCase = true) &&
-                (batch.courseName.equals(target.courseText, ignoreCase = true) ||
-                 batch.courseName.contains(target.courseText, ignoreCase = true) ||
-                 target.courseText.contains(batch.courseName, ignoreCase = true))
+
+    // Filter work is memoized on its actual inputs so unrelated recompositions
+    // (spinner, clock) do not rebuild lists and re-key every card.
+    val filteredBatches = remember(batches, activeTargets) {
+        if (activeTargets.isEmpty()) {
+            emptyList()
+        } else {
+            batches.filter { batch ->
+                activeTargets.any { target ->
+                    batch.pouName.equals(target.pouText, ignoreCase = true) &&
+                            BatchParser.courseMatches(batch.courseName, target.courseText)
+                }
             }
         }
     }
-    val openBatches = filteredBatches.filter { it.isOpen }
+    val openBatches = remember(filteredBatches) { filteredBatches.filter { it.isOpen } }
 
-    var searchQuery by remember { mutableStateOf("") }
-    var showOnlyOpen by remember { mutableStateOf(false) }
+    var searchQuery by rememberSaveable { mutableStateOf("") }
+    var showOnlyOpen by rememberSaveable { mutableStateOf(false) }
 
-    val displayedBatches = filteredBatches.filter { batch ->
-        val matchesFilter = if (showOnlyOpen) batch.isOpen else true
-        val matchesSearch = if (searchQuery.isBlank()) true else {
-            batch.batchName.contains(searchQuery, ignoreCase = true) ||
-            batch.venue.contains(searchQuery, ignoreCase = true) ||
-            batch.dates.contains(searchQuery, ignoreCase = true) ||
-            batch.timings.contains(searchQuery, ignoreCase = true) ||
-            batch.courseName.contains(searchQuery, ignoreCase = true) ||
-            batch.pouName.contains(searchQuery, ignoreCase = true)
+    val displayedBatches = remember(filteredBatches, showOnlyOpen, searchQuery) {
+        filteredBatches.filter { batch ->
+            val matchesFilter = if (showOnlyOpen) batch.isOpen else true
+            val matchesSearch = if (searchQuery.isBlank()) {
+                true
+            } else {
+                batch.batchName.contains(searchQuery, ignoreCase = true) ||
+                        batch.venue.contains(searchQuery, ignoreCase = true) ||
+                        batch.dates.contains(searchQuery, ignoreCase = true) ||
+                        batch.timings.contains(searchQuery, ignoreCase = true) ||
+                        batch.courseName.contains(searchQuery, ignoreCase = true) ||
+                        batch.pouName.contains(searchQuery, ignoreCase = true)
+            }
+            matchesFilter && matchesSearch
         }
-        matchesFilter && matchesSearch
     }
 
     LazyColumn(
@@ -134,6 +145,7 @@ fun DashboardScreen(
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .widthIn(max = 640.dp)
                     .testTag("status_control_card"),
                 shape = RoundedCornerShape(24.dp),
                 colors = CardDefaults.cardColors(
@@ -161,7 +173,7 @@ fun DashboardScreen(
                                 modifier = Modifier
                                     .size(10.dp)
                                     .clip(CircleShape)
-                                    .background(if (settings.isMonitoringActive) EmeraldOpenSeats else Color.Gray)
+                                    .background(if (settings.isMonitoringActive) StatusOpen() else MaterialTheme.colorScheme.outline)
                             )
                             Text(
                                 text = if (settings.isMonitoringActive) "Auto-Checking" else "Monitoring Paused",
@@ -226,11 +238,11 @@ fun DashboardScreen(
                             enabled = hasTargets || settings.isMonitoringActive,
                             modifier = Modifier
                                 .weight(1f)
-                                .height(48.dp)
+                                .heightIn(min = 48.dp)
                                 .testTag("toggle_monitoring_button"),
                             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = if (settings.isMonitoringActive) RedFullSeats else EmeraldOpenSeats
+                                containerColor = if (settings.isMonitoringActive) StatusFull() else StatusOpen()
                             ),
                             shape = RoundedCornerShape(14.dp)
                         ) {
@@ -245,9 +257,7 @@ fun DashboardScreen(
                                 else if (!hasTargets) "No Targets"
                                 else "Start Monitor",
                                 fontWeight = FontWeight.SemiBold,
-                                fontSize = 12.sp,
-                                maxLines = 1,
-                                softWrap = false
+                                fontSize = 12.sp
                             )
                         }
 
@@ -256,14 +266,16 @@ fun DashboardScreen(
                             enabled = !isRefreshing,
                             modifier = Modifier
                                 .weight(1f)
-                                .height(48.dp)
+                                .heightIn(min = 48.dp)
                                 .testTag("check_now_button"),
                             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
                             shape = RoundedCornerShape(14.dp)
                         ) {
                             if (isRefreshing) {
                                 CircularProgressIndicator(
-                                    modifier = Modifier.size(16.dp),
+                                    modifier = Modifier
+                                        .size(16.dp)
+                                        .semantics { contentDescription = "Checking, please wait" },
                                     strokeWidth = 2.dp
                                 )
                             } else {
@@ -276,9 +288,7 @@ fun DashboardScreen(
                                 Text(
                                     text = "Check Now",
                                     fontSize = 12.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    maxLines = 1,
-                                    softWrap = false
+                                    fontWeight = FontWeight.SemiBold
                                 )
                             }
                         }
@@ -290,16 +300,20 @@ fun DashboardScreen(
         // Expressive Key Metrics (Centered 2-Column Grid)
         item {
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .widthIn(max = 640.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
+                val openColor = StatusOpen()
+                val openContainer = StatusOpenContainer()
                 // Open Seats Card
                 Surface(
                     modifier = Modifier
                         .weight(1f)
-                        .height(96.dp),
+                        .heightIn(min = 96.dp),
                     shape = RoundedCornerShape(20.dp),
-                    color = if (openBatches.isNotEmpty()) EmeraldContainer.copy(alpha = 0.4f) else MaterialTheme.colorScheme.surfaceContainer
+                    color = if (openBatches.isNotEmpty()) openContainer.copy(alpha = 0.4f) else MaterialTheme.colorScheme.surfaceContainer
                 ) {
                     Column(
                         modifier = Modifier
@@ -312,12 +326,12 @@ fun DashboardScreen(
                             text = "${openBatches.size}",
                             style = MaterialTheme.typography.headlineLarge.copy(
                                 fontWeight = FontWeight.Bold,
-                                color = if (openBatches.isNotEmpty()) EmeraldOpenSeats else MaterialTheme.colorScheme.onSurface
+                                color = if (openBatches.isNotEmpty()) openColor else MaterialTheme.colorScheme.onSurface
                             )
                         )
                         Text(
                             text = "Open Seats",
-                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
+                            style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -327,7 +341,7 @@ fun DashboardScreen(
                 Surface(
                     modifier = Modifier
                         .weight(1f)
-                        .height(96.dp),
+                        .heightIn(min = 96.dp),
                     shape = RoundedCornerShape(20.dp),
                     color = MaterialTheme.colorScheme.surfaceContainer
                 ) {
@@ -347,9 +361,48 @@ fun DashboardScreen(
                         )
                         Text(
                             text = "Total Batches",
-                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
+                            style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                    }
+                }
+            }
+        }
+
+        // Battery-optimization guidance: shown while monitoring is active and the
+        // app is still subject to Doze deferral.
+        if (settings.isMonitoringActive && !isIgnoringBatteryOptimizations(context)) {
+            item {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("battery_optimization_card"),
+                    shape = RoundedCornerShape(20.dp),
+                    color = MaterialTheme.colorScheme.tertiaryContainer
+                ) {
+                    Row(
+                        modifier = Modifier.padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Battery saver may delay checks",
+                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.onTertiaryContainer
+                            )
+                            Text(
+                                text = "Allow unrestricted background running for reliable alerts.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onTertiaryContainer
+                            )
+                        }
+                        TextButton(
+                            onClick = { openBatterySettings(context) },
+                            modifier = Modifier.testTag("battery_settings_button")
+                        ) {
+                            Text("Open settings", fontWeight = FontWeight.SemiBold)
+                        }
                     }
                 }
             }
@@ -358,16 +411,11 @@ fun DashboardScreen(
         // Dedicated Single Prominent Action Banner for ICAI Portal
         item {
             OutlinedButton(
-                onClick = {
-                    val browserIntent = Intent(
-                        Intent.ACTION_VIEW,
-                        Uri.parse("https://www.icaionlineregistration.org/LaunchBatchDetail.aspx")
-                    )
-                    context.startActivity(browserIntent)
-                },
+                onClick = { openIcaiPortal(context) },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(44.dp)
+                    .widthIn(max = 640.dp)
+                    .heightIn(min = 48.dp)
                     .testTag("open_icai_web_button"),
                 shape = RoundedCornerShape(14.dp),
                 colors = ButtonDefaults.outlinedButtonColors(
@@ -375,7 +423,7 @@ fun DashboardScreen(
                 )
             ) {
                 Icon(
-                    imageVector = Icons.Default.OpenInNew,
+                    imageVector = Icons.AutoMirrored.Filled.OpenInNew,
                     contentDescription = null,
                     modifier = Modifier.size(18.dp)
                 )
@@ -410,11 +458,15 @@ fun DashboardScreen(
                             }
                         },
                         singleLine = true,
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Text,
+                            imeAction = ImeAction.Search
+                        ),
                         shape = RoundedCornerShape(16.dp),
                         colors = OutlinedTextFieldDefaults.colors(
                             unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
                             focusedContainerColor = MaterialTheme.colorScheme.surface,
-                            unfocusedBorderColor = Color.Transparent,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.surfaceContainer,
                             focusedBorderColor = MaterialTheme.colorScheme.primary
                         )
                     )
@@ -445,8 +497,8 @@ fun DashboardScreen(
                                 }
                             },
                             colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = EmeraldContainer,
-                                selectedLabelColor = EmeraldOpenSeats
+                                selectedContainerColor = StatusOpenContainer(),
+                                selectedLabelColor = StatusOpen()
                             ),
                             modifier = Modifier.testTag("filter_chip_open_only")
                         )
@@ -516,19 +568,49 @@ fun DashboardScreen(
     }
 }
 
+private fun isIgnoringBatteryOptimizations(context: android.content.Context): Boolean {
+    val pm = context.getSystemService(android.os.PowerManager::class.java) ?: return false
+    return pm.isIgnoringBatteryOptimizations(context.packageName)
+}
+
+private fun openBatterySettings(context: android.content.Context) {
+    val intent = Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    try {
+        context.startActivity(intent)
+    } catch (_: ActivityNotFoundException) {
+    }
+}
+
+private fun openIcaiPortal(context: android.content.Context) {
+    try {
+        context.startActivity(
+            Intent(
+                Intent.ACTION_VIEW,
+                Uri.parse(IcaiUrls.PORTAL)
+            ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        )
+    } catch (_: ActivityNotFoundException) {
+    }
+}
+
 @Composable
 fun BatchCardItem(batch: BatchEntity) {
     val context = LocalContext.current
     val timeFormatted = rememberTimeFormat(batch.lastCheckedTimestamp)
+    val openColor = StatusOpen()
+    val fullColor = StatusFull()
+    val fullContainer = StatusFullContainer()
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
+            .widthIn(max = 640.dp)
             .testTag("batch_item_${batch.batchName}"),
         shape = RoundedCornerShape(22.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (batch.isOpen)
-                EmeraldContainer.copy(alpha = 0.25f)
+                StatusOpenContainer().copy(alpha = 0.25f)
             else
                 MaterialTheme.colorScheme.surfaceContainer
         )
@@ -559,12 +641,12 @@ fun BatchCardItem(batch: BatchEntity) {
 
                 Surface(
                     shape = RoundedCornerShape(10.dp),
-                    color = if (batch.isOpen) EmeraldOpenSeats else RedBg
+                    color = if (batch.isOpen) openColor else fullContainer
                 ) {
                     Text(
                         text = if (batch.isOpen) "${batch.availableSeats} Open" else "Full",
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            color = if (batch.isOpen) Color.White else RedFullSeats,
+                        style = MaterialTheme.typography.labelMedium.copy(
+                            color = if (batch.isOpen) MaterialTheme.colorScheme.onPrimary else fullColor,
                             fontWeight = FontWeight.Bold
                         ),
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
@@ -580,10 +662,12 @@ fun BatchCardItem(batch: BatchEntity) {
                 overflow = TextOverflow.Ellipsis
             )
 
-            // Clean Capacity Indicator
+            // Capacity indicator. The percentage bar is shown ONLY when the portal
+            // actually published a total; otherwise we'd imply a misleading
+            // "avail of avail = 100%" reading. Just show the seat count instead.
             val total = batch.totalSeats
             val avail = batch.availableSeats
-            if (total > 0) {
+            if (batch.knownCapacity && total > 0) {
                 val progress = (avail.toFloat() / total.toFloat()).coerceIn(0f, 1f)
                 Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                     Row(
@@ -592,25 +676,31 @@ fun BatchCardItem(batch: BatchEntity) {
                     ) {
                         Text(
                             text = "$avail of $total seats left",
-                            style = MaterialTheme.typography.labelSmall,
+                            style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
                             text = "${(progress * 100).toInt()}%",
-                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                            color = if (batch.isOpen) EmeraldOpenSeats else MaterialTheme.colorScheme.onSurfaceVariant
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                            color = if (batch.isOpen) openColor else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                     LinearProgressIndicator(
-                        progress = progress,
+                        progress = { progress },
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(5.dp)
                             .clip(RoundedCornerShape(3.dp)),
-                        color = if (batch.isOpen) EmeraldOpenSeats else RedFullSeats,
+                        color = if (batch.isOpen) openColor else fullColor,
                         trackColor = MaterialTheme.colorScheme.surfaceVariant
                     )
                 }
+            } else if (avail > 0) {
+                Text(
+                    text = "$avail seat${if (avail == 1) "" else "s"} available",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = openColor
+                )
             }
 
             // Key Info Row (Icons with clean values)
@@ -683,25 +773,20 @@ fun BatchCardItem(batch: BatchEntity) {
             ) {
                 Text(
                     text = "Checked: $timeFormatted",
-                    style = MaterialTheme.typography.labelSmall,
+                    style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
                 if (batch.isOpen) {
                     Button(
-                        onClick = {
-                            val intent = Intent(
-                                Intent.ACTION_VIEW,
-                                Uri.parse("https://www.icaionlineregistration.org/LaunchBatchDetail.aspx")
-                            )
-                            context.startActivity(intent)
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = EmeraldOpenSeats),
+                        onClick = { openIcaiPortal(context) },
+                        colors = ButtonDefaults.buttonColors(containerColor = openColor),
                         shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier.height(34.dp)
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+                        modifier = Modifier.heightIn(min = 40.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.OpenInNew,
+                            imageVector = Icons.AutoMirrored.Filled.OpenInNew,
                             contentDescription = null,
                             modifier = Modifier.size(14.dp)
                         )
@@ -716,6 +801,7 @@ fun BatchCardItem(batch: BatchEntity) {
 
 @Composable
 fun rememberTimeFormat(timestamp: Long): String {
-    if (timestamp <= 0) return "Never"
-    return SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date(timestamp))
+    if (timestamp <= 0L) return "Never"
+    val context = LocalContext.current
+    return remember(timestamp, context) { formatTimestamp(context, timestamp) }
 }

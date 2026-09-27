@@ -21,9 +21,18 @@ jobs:
       uses: gradle/actions/setup-gradle@v3
 
     - name: Decode Release Keystore
+      env:
+        KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
       run: |
-        echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > "${{ github.workspace }}/release.jks"
+        if [ -z "$KEYSTORE_BASE64" ]; then
+          echo "::error::KEYSTORE_BASE64 secret is not set; refusing to produce an unsigned release." >&2
+          exit 1
+        fi
+        printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "${{ github.workspace }}/release.jks"
         ls -lh "${{ github.workspace }}/release.jks"
+
+    - name: Unit Tests
+      run: ./gradlew testDebugUnitTest
 
     - name: Build Release APK
       env:
@@ -31,7 +40,12 @@ jobs:
         STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
         KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-      run: gradle assembleRelease
+      run: ./gradlew assembleRelease
+
+    - name: Verify APK is signed
+      run: |
+        BUILD_TOOLS=$(ls -d "$ANDROID_HOME/build-tools/"* | sort -V | tail -n 1)
+        "$BUILD_TOOLS/apksigner" verify --print-certs app/build/outputs/apk/release/app-release.apk
 
     - name: Upload Release APK
       uses: actions/upload-artifact@v4

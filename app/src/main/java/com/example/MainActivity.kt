@@ -12,45 +12,30 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BrightnessAuto
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Contrast
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.LightMode
-import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -69,26 +54,28 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.ui.MainViewModel
 import com.example.ui.screens.ConfigScreen
 import com.example.ui.screens.DashboardScreen
 import com.example.ui.screens.LogsScreen
 import com.example.ui.theme.AppThemeMode
-import com.example.ui.theme.EmeraldOpenSeats
 import com.example.ui.theme.IcaiBatchCheckerTheme
+import com.example.ui.theme.StatusOpen
 
 enum class ScreenTab(val title: String, val icon: ImageVector, val tag: String) {
     DASHBOARD("Batches", Icons.Default.GridView, "tab_dashboard"),
@@ -109,7 +96,7 @@ class MainActivity : ComponentActivity() {
             val currentThemeMode by viewModel.themeMode.collectAsStateWithLifecycle()
             IcaiBatchCheckerTheme(themeMode = currentThemeMode) {
                 val context = LocalContext.current
-                var currentTab by remember { mutableStateOf(ScreenTab.DASHBOARD) }
+                var currentTab by rememberSaveable { mutableStateOf(ScreenTab.DASHBOARD) }
                 val snackbarHostState = remember { SnackbarHostState() }
 
                 val batches by viewModel.batchesFlow.collectAsStateWithLifecycle()
@@ -119,6 +106,8 @@ class MainActivity : ComponentActivity() {
                 val regions by viewModel.regionsList.collectAsStateWithLifecycle()
                 val pouList by viewModel.pouList.collectAsStateWithLifecycle()
                 val isLoadingPous by viewModel.isLoadingPous.collectAsStateWithLifecycle()
+                val regionsOffline by viewModel.regionsOffline.collectAsStateWithLifecycle()
+                val pousOffline by viewModel.pousOffline.collectAsStateWithLifecycle()
                 val statusMessage by viewModel.statusMessage.collectAsStateWithLifecycle()
 
                 val openBatchesCount = remember(batches) {
@@ -128,7 +117,11 @@ class MainActivity : ComponentActivity() {
                 // Dynamic Notification Permission Request (Android 13+)
                 val permissionLauncher = rememberLauncherForActivityResult(
                     contract = ActivityResultContracts.RequestPermission()
-                ) { _ -> }
+                ) { granted ->
+                    if (!granted) {
+                        viewModel.notifyPermissionRequested()
+                    }
+                }
 
                 LaunchedEffect(Unit) {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -161,10 +154,11 @@ class MainActivity : ComponentActivity() {
                                     )
 
                                     // Expressive status pill
+                                    val activeColor = StatusOpen()
                                     Surface(
                                         shape = RoundedCornerShape(12.dp),
                                         color = if (settings.isMonitoringActive)
-                                            EmeraldOpenSeats.copy(alpha = 0.15f)
+                                            activeColor.copy(alpha = 0.15f)
                                         else
                                             MaterialTheme.colorScheme.surfaceContainerHigh
                                     ) {
@@ -177,7 +171,7 @@ class MainActivity : ComponentActivity() {
                                                     .size(6.dp)
                                                     .clip(CircleShape)
                                                     .background(
-                                                        if (settings.isMonitoringActive) EmeraldOpenSeats
+                                                        if (settings.isMonitoringActive) activeColor
                                                         else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                                                     )
                                             )
@@ -186,7 +180,7 @@ class MainActivity : ComponentActivity() {
                                                 text = if (settings.isMonitoringActive) "Active" else "Paused",
                                                 style = MaterialTheme.typography.labelSmall.copy(
                                                     fontWeight = FontWeight.SemiBold,
-                                                    color = if (settings.isMonitoringActive) EmeraldOpenSeats
+                                                    color = if (settings.isMonitoringActive) activeColor
                                                     else MaterialTheme.colorScheme.onSurfaceVariant
                                                 )
                                             )
@@ -220,7 +214,9 @@ class MainActivity : ComponentActivity() {
                                 ) {
                                     if (isRefreshing) {
                                         CircularProgressIndicator(
-                                            modifier = Modifier.size(18.dp),
+                                            modifier = Modifier
+                                                .size(18.dp)
+                                                .semantics { contentDescription = "Checking, please wait" },
                                             strokeWidth = 2.dp
                                         )
                                     } else {
@@ -238,8 +234,8 @@ class MainActivity : ComponentActivity() {
                         )
                     },
                     bottomBar = {
+                        // NavigationBar applies system bar insets itself; do not double-pad.
                         NavigationBar(
-                            modifier = Modifier.windowInsetsPadding(WindowInsets.navigationBars),
                             containerColor = MaterialTheme.colorScheme.surfaceContainer
                         ) {
                             ScreenTab.entries.forEach { tab ->
@@ -259,8 +255,8 @@ class MainActivity : ComponentActivity() {
                                             BadgedBox(
                                                 badge = {
                                                     Badge(
-                                                        containerColor = EmeraldOpenSeats,
-                                                        contentColor = Color.White
+                                                        containerColor = StatusOpen(),
+                                                        contentColor = MaterialTheme.colorScheme.onPrimary
                                                     ) {
                                                         Text("$openBatchesCount")
                                                     }
@@ -295,11 +291,14 @@ class MainActivity : ComponentActivity() {
                         regions = regions,
                         pous = pouList,
                         isLoadingPous = isLoadingPous,
+                        regionsOffline = regionsOffline,
+                        pousOffline = pousOffline,
                         onRegionChanged = viewModel::loadPousForRegion,
                         onNavigateToTargets = { currentTab = ScreenTab.SETTINGS },
                         onToggleMonitoring = viewModel::toggleMonitoring,
                         onCheckNow = viewModel::triggerCheckNow,
-                        onSaveSettings = viewModel::updateSettings,
+                        onIntervalSelected = viewModel::updateInterval,
+                        onMockModeChanged = viewModel::setMockMode,
                         onAddTarget = viewModel::addTarget,
                         onRemoveTarget = viewModel::removeTarget,
                         onToggleTargetEnabled = viewModel::toggleTargetEnabled,
@@ -326,20 +325,14 @@ fun ScaffoldContent(
     regions: List<com.example.data.model.DropdownOption>,
     pous: List<com.example.data.model.DropdownOption> = emptyList(),
     isLoadingPous: Boolean = false,
+    regionsOffline: Boolean = false,
+    pousOffline: Boolean = false,
     onRegionChanged: (String) -> Unit = {},
     onNavigateToTargets: () -> Unit = {},
     onToggleMonitoring: () -> Unit,
     onCheckNow: () -> Unit,
-    onSaveSettings: (
-        regionVal: String,
-        regionTxt: String,
-        pouVal: String,
-        pouTxt: String,
-        courseVal: String,
-        courseTxt: String,
-        intervalMins: Int,
-        mockMode: Boolean
-    ) -> Unit,
+    onIntervalSelected: (Int) -> Unit,
+    onMockModeChanged: (Boolean) -> Unit,
     onAddTarget: (com.example.data.model.BatchTarget) -> Unit,
     onRemoveTarget: (String) -> Unit,
     onToggleTargetEnabled: (String) -> Unit,
@@ -364,8 +357,11 @@ fun ScaffoldContent(
                 regions = regions,
                 pous = pous,
                 isLoadingPous = isLoadingPous,
+                regionsOffline = regionsOffline,
+                pousOffline = pousOffline,
                 onRegionChanged = onRegionChanged,
-                onSaveSettings = onSaveSettings,
+                onIntervalSelected = onIntervalSelected,
+                onMockModeChanged = onMockModeChanged,
                 onAddTarget = onAddTarget,
                 onRemoveTarget = onRemoveTarget,
                 onToggleTargetEnabled = onToggleTargetEnabled,

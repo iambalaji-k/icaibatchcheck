@@ -1,19 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?><!--
-   Sample data extraction rules file; uncomment and customize as necessary.
-   See https://developer.android.com/about/versions/12/backup-restore#xml-changes
-   for details.
+   API 31+ backup and device-transfer rules.
+   The Telegram bot token / chat id live in icai_checker_secrets and are excluded
+   from both cloud backup and device transfer.
 -->
 <data-extraction-rules>
     <cloud-backup>
-        <!-- TODO: Use <include> and <exclude> to control what is backed up.
-        <include .../>
-        <exclude .../>
-        -->
+        <exclude domain="sharedpref" path="icai_checker_secrets.xml" />
     </cloud-backup>
-    <!--
     <device-transfer>
-        <include .../>
-        <exclude .../>
+        <exclude domain="sharedpref" path="icai_checker_secrets.xml" />
     </device-transfer>
-    -->
 </data-extraction-rules>

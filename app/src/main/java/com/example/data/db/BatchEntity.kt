@@ -9,6 +9,8 @@ data class BatchEntity(
     val batchName: String,
     val totalSeats: Int,
     val availableSeats: Int,
+    // Whether the portal actually published a total capacity for this batch.
+    val knownCapacity: Boolean = false,
     val dates: String,
     val timings: String,
     val venue: String,

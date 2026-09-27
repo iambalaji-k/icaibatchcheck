@@ -4,6 +4,7 @@ data class BatchInfo(
     val batchName: String,
     val totalSeats: Int,
     val availableSeats: Int,
+    val knownCapacity: Boolean = false,
     val dates: String = "",
     val timings: String = "",
     val venue: String = "",

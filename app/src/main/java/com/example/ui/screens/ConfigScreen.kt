@@ -1,6 +1,7 @@
 package com.example.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -9,9 +10,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -29,8 +33,11 @@ import androidx.compose.material.icons.filled.LocationCity
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.School
-import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -38,6 +45,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilterChip
@@ -51,25 +59,35 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.data.IcaiCatalog
 import com.example.data.model.BatchTarget
 import com.example.data.model.DropdownOption
 import com.example.ui.SettingsUiState
 import com.example.ui.theme.AppThemeMode
-import com.example.ui.theme.EmeraldContainer
 import com.example.ui.theme.EmeraldOpenSeats
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -79,17 +97,11 @@ fun ConfigScreen(
     regions: List<DropdownOption>,
     pous: List<DropdownOption> = emptyList(),
     isLoadingPous: Boolean = false,
+    regionsOffline: Boolean = false,
+    pousOffline: Boolean = false,
     onRegionChanged: (String) -> Unit = {},
-    onSaveSettings: (
-        regionVal: String,
-        regionTxt: String,
-        pouVal: String,
-        pouTxt: String,
-        courseVal: String,
-        courseTxt: String,
-        intervalMins: Int,
-        mockMode: Boolean
-    ) -> Unit,
+    onIntervalSelected: (Int) -> Unit,
+    onMockModeChanged: (Boolean) -> Unit,
     onAddTarget: (BatchTarget) -> Unit,
     onRemoveTarget: (String) -> Unit,
     onToggleTargetEnabled: (String) -> Unit,
@@ -99,24 +111,28 @@ fun ConfigScreen(
     onSetThemeMode: (AppThemeMode) -> Unit = {}
 ) {
     // New target entry state
-    var selectedRegionVal by remember { mutableStateOf("4") }
-    var selectedRegionTxt by remember { mutableStateOf("Southern") }
-    var pouTxtInput by remember { mutableStateOf("Chennai") }
-    var pouValInput by remember { mutableStateOf("3") }
-    var courseTxtInput by remember { mutableStateOf("AICITSS - Advanced Information Technology (Adv ITT)") }
-    var courseValInput by remember { mutableStateOf("48") }
+    var selectedRegionVal by rememberSaveable { mutableStateOf("4") }
+    var selectedRegionTxt by rememberSaveable { mutableStateOf("Southern") }
+    var pouTxtInput by rememberSaveable { mutableStateOf("Chennai") }
+    var pouValInput by rememberSaveable { mutableStateOf("3") }
+    var courseTxtInput by rememberSaveable { mutableStateOf("AICITSS - Advanced Information Technology (Adv ITT)") }
+    var courseValInput by rememberSaveable { mutableStateOf("48") }
 
-    // Settings state
-    var selectedInterval by remember(settings) { mutableStateOf(settings.intervalMinutes) }
-    var mockModeEnabled by remember(settings) { mutableStateOf(settings.mockModeEnabled) }
+    // Settings state: keyed on the saved value so an external change (process
+    // recreation, save from elsewhere) re-initialises the draft, while local
+    // edits survive recompositions until settings actually change.
+    var selectedInterval by rememberSaveable(settings.intervalMinutes) { mutableStateOf(settings.intervalMinutes) }
+    var mockModeEnabled by rememberSaveable(settings.mockModeEnabled) { mutableStateOf(settings.mockModeEnabled) }
 
-    var telegramToken by remember(settings) { mutableStateOf(settings.telegramBotToken) }
-    var telegramChatId by remember(settings) { mutableStateOf(settings.telegramChatId) }
-    var telegramEnabled by remember(settings) { mutableStateOf(settings.telegramEnabled) }
+    var telegramToken by rememberSaveable(settings.telegramBotToken) { mutableStateOf(settings.telegramBotToken) }
+    var telegramChatId by rememberSaveable(settings.telegramChatId) { mutableStateOf(settings.telegramChatId) }
+    var telegramEnabled by rememberSaveable(settings.telegramEnabled) { mutableStateOf(settings.telegramEnabled) }
+    var showToken by rememberSaveable { mutableStateOf(false) }
 
     var regionDropdownExpanded by remember { mutableStateOf(false) }
     var pouDropdownExpanded by remember { mutableStateOf(false) }
     var courseDropdownExpanded by remember { mutableStateOf(false) }
+    var pendingDeleteTarget by remember { mutableStateOf<BatchTarget?>(null) }
 
     // Sync POU selection whenever pous list updates
     LaunchedEffect(pous) {
@@ -132,26 +148,20 @@ fun ConfigScreen(
         }
     }
 
-    val regionOptions = if (regions.isNotEmpty()) regions else listOf(
-        DropdownOption("1", "Central"),
-        DropdownOption("2", "Eastern"),
-        DropdownOption("3", "Northern"),
-        DropdownOption("4", "Southern"),
-        DropdownOption("5", "Western")
-    )
+    val regionOptions = regions
+    val courseOptions = IcaiCatalog.COURSES
 
-    val courseOptions = listOf(
-        DropdownOption("48", "AICITSS - Advanced Information Technology (Adv ITT)"),
-        DropdownOption("49", "AICITSS - Management & Communication Skills (MCS)"),
-        DropdownOption("46", "ICITSS - Information Technology Course (ITT)"),
-        DropdownOption("47", "ICITSS - Orientation Course (OC)")
-    )
-
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.TopCenter
+    ) {
     Column(
         modifier = Modifier
-            .fillMaxSize()
+            .fillMaxWidth()
+            .widthIn(max = 640.dp)
             .verticalScroll(rememberScrollState())
-            .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp),
+            .imePadding()
+            .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         // Section 1: Active Targets
@@ -183,6 +193,7 @@ fun ConfigScreen(
                         )
                         Text(
                             text = "Monitored Targets",
+                            modifier = Modifier.semantics { heading() },
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                         )
                     }
@@ -260,13 +271,13 @@ fun ConfigScreen(
                                         Switch(
                                             checked = target.isEnabled,
                                             onCheckedChange = { onToggleTargetEnabled(target.id) },
-                                            modifier = Modifier.testTag("toggle_target_${target.id}")
+                                            modifier = Modifier
+                                                .semantics { contentDescription = "Enable target ${target.pouText} ${target.courseText}" }
+                                                .testTag("toggle_target_${target.id}")
                                         )
                                         IconButton(
-                                            onClick = { onRemoveTarget(target.id) },
-                                            modifier = Modifier
-                                                .size(36.dp)
-                                                .testTag("delete_target_${target.id}")
+                                            onClick = { pendingDeleteTarget = target },
+                                            modifier = Modifier.testTag("delete_target_${target.id}")
                                         ) {
                                             Icon(
                                                 imageVector = Icons.Default.Delete,
@@ -306,8 +317,28 @@ fun ConfigScreen(
                     )
                     Text(
                         text = "Add Target",
+                        modifier = Modifier.semantics { heading() },
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                     )
+                }
+
+                if (regionsOffline || pousOffline) {
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = MaterialTheme.colorScheme.tertiaryContainer
+                    ) {
+                        Text(
+                            text = if (regionsOffline && pousOffline) "Offline: bundled region & center lists in use — ICAI unreachable, values may be stale."
+                                else if (regionsOffline) "Offline: bundled region list in use — ICAI unreachable, values may be stale."
+                                else "Offline: bundled center list in use — ICAI unreachable, values may be stale.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onTertiaryContainer,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 10.dp, vertical = 6.dp)
+                                .testTag("offline_list_badge")
+                        )
+                    }
                 }
 
                 // Region Dropdown
@@ -324,7 +355,7 @@ fun ConfigScreen(
                         shape = RoundedCornerShape(14.dp),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .menuAnchor()
+                            .menuAnchor(MenuAnchorType.PrimaryNotEditable)
                             .testTag("region_dropdown"),
                         colors = OutlinedTextFieldDefaults.colors(
                             unfocusedContainerColor = MaterialTheme.colorScheme.surface,
@@ -336,6 +367,12 @@ fun ConfigScreen(
                         expanded = regionDropdownExpanded,
                         onDismissRequest = { regionDropdownExpanded = false }
                     ) {
+                        if (regionOptions.isEmpty()) {
+                            DropdownMenuItem(
+                                text = { Text("Loading regions from ICAI...") },
+                                onClick = { regionDropdownExpanded = false }
+                            )
+                        }
                         regionOptions.forEach { option ->
                             DropdownMenuItem(
                                 text = { Text(option.text) },
@@ -371,7 +408,7 @@ fun ConfigScreen(
                         shape = RoundedCornerShape(14.dp),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .menuAnchor()
+                            .menuAnchor(MenuAnchorType.PrimaryNotEditable)
                             .testTag("pou_dropdown"),
                         colors = OutlinedTextFieldDefaults.colors(
                             unfocusedContainerColor = MaterialTheme.colorScheme.surface,
@@ -420,7 +457,7 @@ fun ConfigScreen(
                         shape = RoundedCornerShape(14.dp),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .menuAnchor()
+                            .menuAnchor(MenuAnchorType.PrimaryNotEditable)
                             .testTag("course_dropdown"),
                         maxLines = 1,
                         singleLine = true,
@@ -472,7 +509,7 @@ fun ConfigScreen(
                     enabled = pouTxtInput.isNotBlank() && courseTxtInput.isNotBlank(),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(48.dp)
+                        .heightIn(min = 48.dp)
                         .testTag("add_target_button"),
                     shape = RoundedCornerShape(14.dp)
                 ) {
@@ -505,9 +542,16 @@ fun ConfigScreen(
                     )
                     Text(
                         text = "Check Interval",
+                        modifier = Modifier.semantics { heading() },
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                     )
                 }
+
+                Text(
+                    text = "2m/5m/10m = fast mode (visible notification, exact timing). 15m/30m = battery-friendly (no notification; survives reboot and system kills automatically).",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -518,16 +562,7 @@ fun ConfigScreen(
                             selected = selectedInterval == mins,
                             onClick = {
                                 selectedInterval = mins
-                                onSaveSettings(
-                                    selectedRegionVal,
-                                    selectedRegionTxt,
-                                    pouValInput,
-                                    pouTxtInput,
-                                    courseValInput,
-                                    courseTxtInput,
-                                    mins,
-                                    mockModeEnabled
-                                )
+                                onIntervalSelected(mins)
                             },
                             label = {
                                 Text(
@@ -569,20 +604,23 @@ fun ConfigScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Send,
+                            imageVector = Icons.AutoMirrored.Filled.Send,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(20.dp)
                         )
                         Text(
                             text = "Telegram Alerts",
+                            modifier = Modifier.semantics { heading() },
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                         )
                     }
                     Switch(
                         checked = telegramEnabled,
                         onCheckedChange = { telegramEnabled = it },
-                        modifier = Modifier.testTag("telegram_switch")
+                        modifier = Modifier
+                            .semantics { contentDescription = "Enable Telegram alerts" }
+                            .testTag("telegram_switch")
                     )
                 }
 
@@ -595,8 +633,23 @@ fun ConfigScreen(
                         shape = RoundedCornerShape(14.dp),
                         modifier = Modifier
                             .fillMaxWidth()
+                            .semantics { contentDescription = "Telegram bot token" }
                             .testTag("telegram_token_input"),
                         singleLine = true,
+                        visualTransformation = if (showToken) VisualTransformation.None else PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Password,
+                            imeAction = ImeAction.Next,
+                            autoCorrectEnabled = false
+                        ),
+                        trailingIcon = {
+                            IconButton(onClick = { showToken = !showToken }) {
+                                Icon(
+                                    imageVector = if (showToken) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                    contentDescription = if (showToken) "Hide token" else "Show token"
+                                )
+                            }
+                        },
                         colors = OutlinedTextFieldDefaults.colors(
                             unfocusedContainerColor = MaterialTheme.colorScheme.surface,
                             focusedContainerColor = MaterialTheme.colorScheme.surface
@@ -611,8 +664,13 @@ fun ConfigScreen(
                         shape = RoundedCornerShape(14.dp),
                         modifier = Modifier
                             .fillMaxWidth()
+                            .semantics { contentDescription = "Telegram chat ID" }
                             .testTag("telegram_chatid_input"),
                         singleLine = true,
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.NumberPassword,
+                            imeAction = ImeAction.Done
+                        ),
                         colors = OutlinedTextFieldDefaults.colors(
                             unfocusedContainerColor = MaterialTheme.colorScheme.surface,
                             focusedContainerColor = MaterialTheme.colorScheme.surface
@@ -630,7 +688,7 @@ fun ConfigScreen(
                             shape = RoundedCornerShape(12.dp),
                             modifier = Modifier
                                 .weight(1f)
-                                .height(40.dp)
+                                .heightIn(min = 48.dp)
                                 .testTag("save_telegram_button")
                         ) {
                             Text("Save")
@@ -643,7 +701,7 @@ fun ConfigScreen(
                             shape = RoundedCornerShape(12.dp),
                             modifier = Modifier
                                 .weight(1f)
-                                .height(40.dp)
+                                .heightIn(min = 48.dp)
                                 .testTag("test_telegram_button"),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = MaterialTheme.colorScheme.secondaryContainer,
@@ -681,6 +739,7 @@ fun ConfigScreen(
                     )
                     Text(
                         text = "Appearance & Theme",
+                        modifier = Modifier.semantics { heading() },
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                     )
                 }
@@ -752,6 +811,7 @@ fun ConfigScreen(
                     )
                     Text(
                         text = "Diagnostics",
+                        modifier = Modifier.semantics { heading() },
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                     )
                 }
@@ -767,7 +827,7 @@ fun ConfigScreen(
                             style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
                         )
                         Text(
-                            text = "Simulate open slot alert",
+                            text = "Simulate open slot alerts (labelled SIMULATION)",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -776,16 +836,7 @@ fun ConfigScreen(
                         checked = mockModeEnabled,
                         onCheckedChange = {
                             mockModeEnabled = it
-                            onSaveSettings(
-                                selectedRegionVal,
-                                selectedRegionTxt,
-                                pouValInput,
-                                pouTxtInput,
-                                courseValInput,
-                                courseTxtInput,
-                                selectedInterval,
-                                it
-                            )
+                            onMockModeChanged(it)
                         },
                         modifier = Modifier.testTag("mock_mode_switch")
                     )
@@ -796,7 +847,7 @@ fun ConfigScreen(
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(40.dp)
+                        .heightIn(min = 48.dp)
                         .testTag("send_test_notification_button")
                 ) {
                     Icon(
@@ -807,9 +858,36 @@ fun ConfigScreen(
                     Spacer(modifier = Modifier.width(6.dp))
                     Text("Test Notification")
                 }
+
+                Text(
+                    text = "All data stays on this device; alerts go only to the Telegram bot you configure. See PRIVACY.md in the source repository for the full policy. Unofficial tool — not affiliated with ICAI.",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
 
         Spacer(modifier = Modifier.height(16.dp))
+    }
+    }
+
+    pendingDeleteTarget?.let { target ->
+        AlertDialog(
+            onDismissRequest = { pendingDeleteTarget = null },
+            title = { Text("Remove monitoring target?") },
+            text = { Text("${target.pouText} · ${target.courseText}\nIts saved batches will be deleted from this device.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        pendingDeleteTarget = null
+                        onRemoveTarget(target.id)
+                    },
+                    modifier = Modifier.testTag("confirm_delete_target")
+                ) { Text("Remove", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingDeleteTarget = null }) { Text("Cancel") }
+            }
+        )
     }
 }

@@ -28,12 +28,14 @@ Because course slots at ICAI Program Organizing Units (POUs) fill up within minu
 * Concurrent background checking across multiple ICAI **Regions** (Southern, Western, Northern, Central, Eastern), **POU Cities**, and **Courses**.
 * **Dynamic POU / Center Dropdown**: Centers & cities are fetched live and dynamically from ICAI portal based on the selected region.
 * **Unified Course Dropdown Selector**: Clean Material 3 dropdown keeping the configuration form compact and above the fold.
-* Powered by a persistent Android **Foreground Service** (`BatchMonitorService`) with user-configurable polling intervals (2m, 5m, 10m, 15m, 30m).
+* Powered by a hybrid scheduler: a persistent Android **Foreground Service** (`BatchMonitorService`) for exact 2m/5m/10m fast polling, and **WorkManager** periodic checks (battery-friendly, reboot-resilient) for 15m/30m intervals.
 
 ### 🔔 Instant Dual-Alert Engine & Zero Mock Data
-* **Android Push Notifications**: High-priority device alerts with custom sound, vibration, and big-text details.
+* **Android Push Notifications**: High-priority device alerts with sound, vibration, and big-text details.
 * **Telegram Bot Integration**: Delivers live HTML-formatted alerts directly to your personal Telegram chat or group, complete with instant registration links.
-* **Strict Live Error Reporting**: Zero simulated mock data fallbacks. If ICAI servers time out or face errors, the app accurately logs the error in the audit trail without triggering false alarms.
+* **Strict Live Error Reporting**: Batch/seat data is never simulated in normal operation. If ICAI servers time out or face errors, the app accurately logs the error in the audit trail without triggering false alarms.
+* **Offline dropdown lists are badged**: if the region/center picker cannot reach ICAI it falls back to a bundled list and clearly labels it "Offline … values may be stale" — never presented as live data.
+* **Simulation Mode is opt-in only** (Settings → Diagnostics) and every alert it produces is clearly labelled `[SIMULATION]` / 🧪 on-device and in Telegram, so demo alerts can never be mistaken for live ones.
 
 ### 🎨 3-Way Theme Switcher (Light, Dark & AMOLED)
 * Cyclical single-tap icon toggle in the Top App Bar:

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- ICAI serves a chain rooted in Sectigo Public Server Authentication Root R46
+         (a 2021-vintage root). Devices on Android 8/9 predate it in their system CA
+         store and fail with "Trust anchor for certification path not found", so we
+         bundle the root for ICAI domains only; all other hosts keep system-only anchors. -->
+    <domain-config>
+        <domain includeSubdomains="true">icaionlineregistration.org</domain>
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="@raw/sectigo_public_server_authentication_root_r46" />
+        </trust-anchors>
+    </domain-config>
+</network-security-config>

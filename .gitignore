@@ -21,6 +21,8 @@ release.keystore
 *.keystore
 *.p12
 *.pem
+# ...but the bundled public CA root (network security config) is not a secret
+!app/src/main/res/raw/*.pem
 
 # Android AI-Studio env convention (only the placeholder example is committed)
 .env

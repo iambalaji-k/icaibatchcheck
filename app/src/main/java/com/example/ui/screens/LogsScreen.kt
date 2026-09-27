@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -42,8 +43,8 @@ import androidx.compose.ui.unit.dp
 import com.example.data.db.CheckLogEntity
 import com.example.ui.theme.StatusFull
 import com.example.ui.theme.StatusFullContainer
-import com.example.ui.theme.StatusOpen
 import com.example.ui.theme.StatusOpenContainer
+import com.example.ui.theme.onStatusOpen
 
 @Composable
 fun LogsScreen(
@@ -55,6 +56,7 @@ fun LogsScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .widthIn(max = 640.dp)
             .padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
@@ -140,7 +142,9 @@ fun LogsScreen(
             }
         } else {
             LazyColumn(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(logs, key = { it.id }) { log ->
@@ -179,7 +183,7 @@ fun LogCardItem(log: CheckLogEntity) {
     val timeStr = formatTimestamp(context, log.timestamp)
 
     val (badgeBg, badgeColor, badgeText) = when (log.status) {
-        "ALERT_TRIGGERED" -> Triple(StatusOpenContainer(), StatusOpen(), "SLOT OPEN")
+        "ALERT_TRIGGERED" -> Triple(StatusOpenContainer(), onStatusOpen(), "SLOT OPEN")
         "ERROR" -> Triple(StatusFullContainer(), StatusFull(), "ERROR")
         else -> Triple(MaterialTheme.colorScheme.surfaceContainerHigh, MaterialTheme.colorScheme.primary, "CHECKED")
     }

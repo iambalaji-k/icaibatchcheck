@@ -211,7 +211,7 @@ object NotificationHelper {
         val summary = NotificationCompat.Builder(context, CHANNEL_ID_ALERTS)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle("ICAI Batch Checker")
-            .setContentText("Open slots detected — swipe to expand")
+            .setContentText("Open slots detected, swipe to expand")
             .setColor(Color.parseColor("#059669"))
             .setGroup(GROUP_KEY_ALERTS)
             .setGroupSummary(true)

@@ -31,7 +31,7 @@ class BatchMonitorResumeWorker(
                 MonitoringScheduler.schedulePeriodic(applicationContext, MonitoringScheduler.FAST_INTERVAL_MIN)
                 NotificationHelper.sendStatusNotification(
                     context = applicationContext,
-                    title = "Monitoring continues — reduced cadence",
+                    title = "Monitoring continues: reduced cadence",
                     message = "Android blocked the fast loop in the background. Checks keep running every 15 minutes automatically; open the app once to restore fast mode."
                 )
             } else {

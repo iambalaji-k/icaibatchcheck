@@ -49,14 +49,14 @@ object BatchCheckEngine {
                     CheckLogEntity(
                         timestamp = System.currentTimeMillis(),
                         status = "NO_TARGETS",
-                        message = "[$source] No active targets configured. Add a target in Settings.",
+                        message = "[$source] No active targets configured. Add a target in the Targets tab.",
                         regionName = "-",
                         pouName = "-",
                         courseName = "-",
                         openBatchesCount = 0
                     )
                 )
-                onStatus("No active targets. Add target in Settings.", false)
+                onStatus("No active targets. Add one in the Targets tab.", false)
                 return
             }
 
@@ -195,9 +195,9 @@ object BatchCheckEngine {
                             totalOpenAcrossTargets += openCount
 
                             val logMsg = if (openCount > 0) {
-                                "🎉 $openCount OPEN BATCH(ES) in $pouTxt ($crsTxt)"
+                                "🎉 $openCount open batch(es) in $pouTxt ($crsTxt)"
                             } else {
-                                "Checked $pouTxt ($crsTxt) — No seats available."
+                                "Checked $pouTxt ($crsTxt), no seats available."
                             }
 
                             db.checkLogDao().insertLog(
@@ -232,10 +232,10 @@ object BatchCheckEngine {
                 }
 
                 val statusSummary = when {
-                    totalOpenAcrossTargets > 0 -> "🎉 $totalOpenAcrossTargets OPEN BATCH(ES) FOUND across active targets!"
+                    totalOpenAcrossTargets > 0 -> "🎉 $totalOpenAcrossTargets open batch(es) found across active targets."
                     errorCount > 0 && errorCount == activeTargets.size -> "Check failed: ICAI server unreachable"
                     errorCount > 0 -> "Checked with errors: ICAI server unreachable for some targets"
-                    else -> "Checked ${activeTargets.size} target(s) at $timeStr — No open seats."
+                    else -> "Checked ${activeTargets.size} target(s) at $timeStr, no open seats."
                 }
                 onStatus(statusSummary, false)
             } finally {

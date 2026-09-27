@@ -30,12 +30,10 @@ import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.LightMode
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.CenterAlignedTopAppBar
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -63,9 +61,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -76,6 +71,8 @@ import com.example.ui.screens.LogsScreen
 import com.example.ui.theme.AppThemeMode
 import com.example.ui.theme.IcaiBatchCheckerTheme
 import com.example.ui.theme.StatusOpen
+import com.example.ui.theme.StatusOpenContainer
+import com.example.ui.theme.onStatusOpen
 
 enum class ScreenTab(val title: String, val icon: ImageVector, val tag: String) {
     DASHBOARD("Batches", Icons.Default.GridView, "tab_dashboard"),
@@ -155,10 +152,11 @@ class MainActivity : ComponentActivity() {
 
                                     // Expressive status pill
                                     val activeColor = StatusOpen()
+                                    val activeOnColor = onStatusOpen()
                                     Surface(
                                         shape = RoundedCornerShape(12.dp),
                                         color = if (settings.isMonitoringActive)
-                                            activeColor.copy(alpha = 0.15f)
+                                            StatusOpenContainer()
                                         else
                                             MaterialTheme.colorScheme.surfaceContainerHigh
                                     ) {
@@ -172,7 +170,7 @@ class MainActivity : ComponentActivity() {
                                                     .clip(CircleShape)
                                                     .background(
                                                         if (settings.isMonitoringActive) activeColor
-                                                        else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                                        else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                                                     )
                                             )
                                             Spacer(modifier = Modifier.width(5.dp))
@@ -180,8 +178,8 @@ class MainActivity : ComponentActivity() {
                                                 text = if (settings.isMonitoringActive) "Active" else "Paused",
                                                 style = MaterialTheme.typography.labelSmall.copy(
                                                     fontWeight = FontWeight.SemiBold,
-                                                    color = if (settings.isMonitoringActive) activeColor
-                                                    else MaterialTheme.colorScheme.onSurfaceVariant
+                                                    color = if (settings.isMonitoringActive) activeOnColor
+                                                    else MaterialTheme.colorScheme.onSurface
                                                 )
                                             )
                                         }
@@ -205,27 +203,6 @@ class MainActivity : ComponentActivity() {
                                         contentDescription = "Theme: ${currentThemeMode.title}",
                                         modifier = Modifier.size(20.dp)
                                     )
-                                }
-
-                                IconButton(
-                                    onClick = viewModel::triggerCheckNow,
-                                    enabled = !isRefreshing,
-                                    modifier = Modifier.testTag("check_now_top_button")
-                                ) {
-                                    if (isRefreshing) {
-                                        CircularProgressIndicator(
-                                            modifier = Modifier
-                                                .size(18.dp)
-                                                .semantics { contentDescription = "Checking, please wait" },
-                                            strokeWidth = 2.dp
-                                        )
-                                    } else {
-                                        Icon(
-                                            imageVector = Icons.Default.Refresh,
-                                            contentDescription = "Check Now",
-                                            modifier = Modifier.size(20.dp)
-                                        )
-                                    }
                                 }
                             },
                             colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
@@ -262,10 +239,10 @@ class MainActivity : ComponentActivity() {
                                                     }
                                                 }
                                             ) {
-                                                Icon(tab.icon, contentDescription = tab.title)
+                                                Icon(tab.icon, contentDescription = null)
                                             }
                                         } else {
-                                            Icon(tab.icon, contentDescription = tab.title)
+                                            Icon(tab.icon, contentDescription = null)
                                         }
                                     },
                                     label = {
@@ -342,7 +319,10 @@ fun ScaffoldContent(
     onClearLogs: () -> Unit,
     onSetThemeMode: (AppThemeMode) -> Unit
 ) {
-    androidx.compose.foundation.layout.Box(modifier = modifier.fillMaxSize()) {
+    androidx.compose.foundation.layout.Box(
+        modifier = modifier.fillMaxSize(),
+        contentAlignment = Alignment.TopCenter
+    ) {
         when (currentTab) {
             ScreenTab.DASHBOARD -> DashboardScreen(
                 batches = batches,

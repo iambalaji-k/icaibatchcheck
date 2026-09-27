@@ -161,7 +161,7 @@ class BatchMonitorService : Service() {
                     NotificationHelper.sendStatusNotification(
                         context = this@BatchMonitorService,
                         title = "Resuming soon",
-                        message = "Daily system limit reached — monitoring auto-resumes in ~20 minutes. No action needed."
+                        message = "Daily system limit reached. Monitoring auto-resumes in ~20 minutes. No action needed."
                     )
                     MonitoringScheduler.scheduleFastLoopResume(this@BatchMonitorService, delayMinutes = 20)
                     prefs.monitoringStartedAt = 0L

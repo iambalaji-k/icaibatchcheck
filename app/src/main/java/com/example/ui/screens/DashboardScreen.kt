@@ -82,6 +82,7 @@ import com.example.ui.theme.StatusFull
 import com.example.ui.theme.StatusFullContainer
 import com.example.ui.theme.StatusOpen
 import com.example.ui.theme.StatusOpenContainer
+import com.example.ui.theme.onStatusOpen
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -135,6 +136,7 @@ fun DashboardScreen(
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
+            .widthIn(max = 640.dp)
             .padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
@@ -471,9 +473,10 @@ fun DashboardScreen(
                         )
                     )
 
-                    Row(
+                    FlowRow(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         FilterChip(
                             selected = !showOnlyOpen,
@@ -498,7 +501,7 @@ fun DashboardScreen(
                             },
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = StatusOpenContainer(),
-                                selectedLabelColor = StatusOpen()
+                                selectedLabelColor = onStatusOpen()
                             ),
                             modifier = Modifier.testTag("filter_chip_open_only")
                         )

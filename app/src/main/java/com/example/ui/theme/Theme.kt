@@ -101,6 +101,13 @@ fun StatusOpen(): Color =
 fun StatusOpenContainer(): Color =
     if (schemeIsDark()) Color(0xFF064E3B) else EmeraldContainer
 
+// Text and icons drawn on a StatusOpenContainer surface. StatusOpen() itself is
+// too light on the pale container in the light scheme and too dark on the deep
+// container in dark, so paired surfaces use this on-color instead.
+@Composable
+fun onStatusOpen(): Color =
+    if (schemeIsDark()) Color(0xFF34D399) else EmeraldOpenSeats
+
 @Composable
 fun StatusFull(): Color =
     if (schemeIsDark()) Color(0xFFFB7185) else RedFullSeats

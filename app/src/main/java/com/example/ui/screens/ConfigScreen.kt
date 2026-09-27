@@ -88,7 +88,6 @@ import com.example.data.model.BatchTarget
 import com.example.data.model.DropdownOption
 import com.example.ui.SettingsUiState
 import com.example.ui.theme.AppThemeMode
-import com.example.ui.theme.EmeraldOpenSeats
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -281,7 +280,7 @@ fun ConfigScreen(
                                         ) {
                                             Icon(
                                                 imageVector = Icons.Default.Delete,
-                                                contentDescription = "Delete",
+                                                contentDescription = "Delete ${target.pouText} ${target.courseText}",
                                                 tint = MaterialTheme.colorScheme.error,
                                                 modifier = Modifier.size(18.dp)
                                             )
@@ -328,9 +327,9 @@ fun ConfigScreen(
                         color = MaterialTheme.colorScheme.tertiaryContainer
                     ) {
                         Text(
-                            text = if (regionsOffline && pousOffline) "Offline: bundled region & center lists in use — ICAI unreachable, values may be stale."
-                                else if (regionsOffline) "Offline: bundled region list in use — ICAI unreachable, values may be stale."
-                                else "Offline: bundled center list in use — ICAI unreachable, values may be stale.",
+                            text = if (regionsOffline && pousOffline) "Offline: bundled region & center lists in use. ICAI unreachable, values may be stale."
+                                else if (regionsOffline) "Offline: bundled region list in use. ICAI unreachable, values may be stale."
+                                else "Offline: bundled center list in use. ICAI unreachable, values may be stale.",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onTertiaryContainer,
                             modifier = Modifier
@@ -553,9 +552,10 @@ fun ConfigScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
-                Row(
+                FlowRow(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     listOf(2, 5, 10, 15, 30).forEach { mins ->
                         FilterChip(
@@ -567,15 +567,11 @@ fun ConfigScreen(
                             label = {
                                 Text(
                                     text = "${mins}m",
-                                    maxLines = 1,
-                                    softWrap = false,
                                     fontSize = 12.sp
                                 )
                             },
                             shape = RoundedCornerShape(10.dp),
-                            modifier = Modifier
-                                .weight(1f)
-                                .testTag("interval_chip_${mins}m")
+                            modifier = Modifier.testTag("interval_chip_${mins}m")
                         )
                     }
                 }
@@ -838,7 +834,9 @@ fun ConfigScreen(
                             mockModeEnabled = it
                             onMockModeChanged(it)
                         },
-                        modifier = Modifier.testTag("mock_mode_switch")
+                        modifier = Modifier
+                            .semantics { contentDescription = "Simulation mode" }
+                            .testTag("mock_mode_switch")
                     )
                 }
 
@@ -860,7 +858,7 @@ fun ConfigScreen(
                 }
 
                 Text(
-                    text = "All data stays on this device; alerts go only to the Telegram bot you configure. See PRIVACY.md in the source repository for the full policy. Unofficial tool — not affiliated with ICAI.",
+                    text = "All data stays on this device; alerts go only to the Telegram bot you configure. See PRIVACY.md in the source repository for the full policy. Unofficial tool, not affiliated with ICAI.",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

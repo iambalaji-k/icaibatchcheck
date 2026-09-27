@@ -35,7 +35,7 @@ object TelegramHelper {
         dates: String,
         simulated: Boolean
     ): String {
-        val header = if (simulated) "<b>🧪 SIMULATION — ICAI SLOT OPEN ALERT!</b>" else "<b>🚨 ICAI SLOT OPEN ALERT!</b>"
+        val header = if (simulated) "<b>🧪 SIMULATION: ICAI SLOT OPEN ALERT</b>" else "<b>🚨 ICAI SLOT OPEN ALERT</b>"
         return header + "\n\n" +
                 "<b>Course:</b> " + escapeHtml(course) + "\n" +
                 "<b>POU / City:</b> " + escapeHtml(pou) + " (" + escapeHtml(region) + ")\n" +
@@ -81,7 +81,7 @@ object TelegramHelper {
             client.newCall(request).execute().use { response ->
                 val responseBody = response.body?.string().orEmpty()
                 if (response.isSuccessful) {
-                    Result.success("Telegram notification sent successfully!")
+                    Result.success("Telegram notification sent.")
                 } else {
                     Result.failure(Exception("Telegram API Error (HTTP ${response.code}): $responseBody"))
                 }

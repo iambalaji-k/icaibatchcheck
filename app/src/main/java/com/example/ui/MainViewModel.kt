@@ -109,7 +109,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 // Keep the picker usable offline, but label the list as bundled.
                 _pouList.value = IcaiCatalog.fallbackPousForRegion(regionValue)
                 _pousOffline.value = true
-                _statusMessage.value = "Could not load centers from ICAI — showing bundled offline list. ${res.message}"
+                _statusMessage.value = "Could not load centers from ICAI, showing bundled offline list. ${res.message}"
             }
         }
     }
@@ -172,7 +172,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     // Keep the picker usable offline, but label the list as bundled.
                     _regionsList.value = IcaiCatalog.FALLBACK_REGIONS
                     _regionsOffline.value = true
-                    _statusMessage.value = "Could not load regions from ICAI — showing bundled offline list. ${res.message}"
+                    _statusMessage.value = "Could not load regions from ICAI, showing bundled offline list. ${res.message}"
                 }
             }
         }
@@ -194,13 +194,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             MonitoringScheduler.stop(app)
             prefs.isMonitoringActive = false
             prefs.monitoringWorkFallback = false
-            _statusMessage.value = "Monitoring Stopped."
+            _statusMessage.value = "Monitoring stopped."
         } else {
             val started = MonitoringScheduler.start(app, prefs.intervalMinutes)
             if (started) {
                 prefs.isMonitoringActive = true
                 _statusMessage.value = if (MonitoringScheduler.isFastInterval(prefs.intervalMinutes)) {
-                    "Fast mode — keeps a visible notification for exact ${prefs.intervalMinutes}m checks."
+                    "Fast mode: keeps a visible notification for exact ${prefs.intervalMinutes}m checks."
                 } else {
                     "Monitoring started (every ${prefs.intervalMinutes}m, battery-friendly)."
                 }
@@ -237,7 +237,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 BatchMonitorService.lastCheckCompletedAt.first { it > startedAt }
             }
             if (completed == null) {
-                _statusMessage.value = "Still checking — results will appear in the Activity tab."
+                _statusMessage.value = "Still checking. Results will appear in the Activity tab."
             }
             _isRefreshing.value = false
             refreshSettings()
@@ -258,7 +258,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun setMockMode(enabled: Boolean) {
         prefs.mockModeEnabled = enabled
         refreshSettings()
-        _statusMessage.value = if (enabled) "Simulation mode ON — alerts use fake data." else "Simulation mode OFF."
+        _statusMessage.value = if (enabled) "Simulation mode on: alerts use fake data." else "Simulation mode off."
     }
 
     fun addTarget(newTarget: BatchTarget) {
@@ -266,7 +266,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         current.add(newTarget)
         prefs.saveTargets(current)
         refreshSettings()
-        _statusMessage.value = "Added new monitoring target for ${newTarget.pouText}!"
+        _statusMessage.value = "Added monitoring target for ${newTarget.pouText}."
     }
 
     fun removeTarget(targetId: String) {
@@ -320,20 +320,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
             _statusMessage.value = "Sending test message to Telegram..."
             val testMessage = "<b>🤖 ICAI Batch Checker Test</b>\n\n" +
-                    "Your Telegram notifications are configured successfully!\n" +
+                    "Your Telegram notifications are configured successfully.\n" +
                     "You will receive live slot alerts here whenever seats open."
             val res = TelegramHelper.sendMessage(token, chatId, testMessage)
             if (res.isSuccess) {
-                _statusMessage.value = "✅ Telegram message sent successfully!"
+                _statusMessage.value = "✅ Telegram message sent successfully."
             } else {
-                _statusMessage.value = "❌ Telegram Error: ${res.exceptionOrNull()?.message}"
+                _statusMessage.value = "❌ Telegram error: ${res.exceptionOrNull()?.message}"
             }
         }
     }
 
     fun sendTestNotification() {
         NotificationHelper.sendTestNotification(getApplication())
-        _statusMessage.value = "Test Notification Sent!"
+        _statusMessage.value = "Test notification sent."
     }
 
     fun clearLogs() {
@@ -348,7 +348,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun notifyPermissionRequested() {
-        _statusMessage.value = "Notifications are blocked — slot alerts will not appear. Enable them in System Settings > Apps > ICAI Batch Checker."
+        _statusMessage.value = "Notifications are blocked, so slot alerts will not appear. Enable them in System Settings > Apps > ICAI Batch Checker."
     }
 
     companion object {

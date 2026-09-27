@@ -42,12 +42,12 @@ val PolishAmoledOnSurface = Color(0xFFFFFFFF)
 val PolishAmoledOnSurfaceVariant = Color(0xFFA1A1AA)
 
 // Common Indicator Accents (Emerald / Rose / Amber)
-val EmeraldOpenSeats = Color(0xFF059669)
+val EmeraldOpenSeats = Color(0xFF047857)
 val EmeraldOpenSeatsBright = Color(0xFF10B981)
 val EmeraldBg = Color(0xFFECFDF5)
 val EmeraldContainer = Color(0xFFD1FAE5)
 
-val RedFullSeats = Color(0xFFE11D48)
+val RedFullSeats = Color(0xFFBE123C)
 val RedBg = Color(0xFFFFF1F2)
 
 val AmberAlert = Color(0xFFD97706)
